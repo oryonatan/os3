@@ -1,18 +1,18 @@
 /*
- * IDList.cpp
+ * TaskList.cpp
  *
  *  Created on: Apr 24, 2013
  *      Author: maria
  */
 
-#include "IDList.h"
+#include "TaskList.h"
 
-IDList::IDList() {
+TaskList::TaskList() {
 	// TODO Auto-generated constructor stub
 
 }
 
-IDList::~IDList() {
+TaskList::~TaskList() {
 	// TODO Auto-generated destructor stub
 }
 

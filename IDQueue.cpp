@@ -1,18 +1,18 @@
 /*
- * TaskQueue.cpp
+ * IDQueue.cpp
  *
  *  Created on: Apr 24, 2013
  *      Author: maria
  */
 
-#include "TaskQueue.h"
+#include "IDQueue.h"
 
-TaskQueue::TaskQueue() {
+IDQueue::IDQueue() {
 	// TODO Auto-generated constructor stub
 
 }
 
-TaskQueue::~TaskQueue() {
+IDQueue::~IDQueue() {
 	// TODO Auto-generated destructor stub
 }
 

@@ -6,14 +6,15 @@
  */
 
 #include <iostream>
+#include <cstdio>
 #include "pthread.h"
 #include <algorithm>
 
 #include "outputdevice.h"
-#include "TaskQueue.h"
+#include "IDQueue.h"
 #include "printTask.h"
 #include "exceptions.h"
-#include "IDList.h"
+#include "TaskList.h"
 #include "wrappedFunctions.h"
 
 #define SUCCESS 0
@@ -27,11 +28,11 @@ using namespace std;
 
 pthread_mutex_t initMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t writeMutex;
+pthread_t daemonThread;
 
 bool initialized = false;
-IDList* finishedIDs = NULL;
-IDList* unfinishedIDs = NULL;
-TaskQueue* printQueue = NULL;
+TaskList* allTasks = NULL;
+IDQueue* printQueue = NULL;
 FILE* diskFile = NULL;
 int printCounter = 0;
 
@@ -46,12 +47,7 @@ void closeEverything()
 		delete printQueue;
 	}
 
-	if (finishedIDs != NULL)
-	{
-		delete printQueue;
-	}
-
-	if (unfinishedIDs!= NULL)
+	if (allTasks != NULL)
 	{
 		delete printQueue;
 	}
@@ -70,8 +66,7 @@ void closeEverything()
 //The entry point to the writing daemon thread
 void* writingFunc (void *)
 {
-	void* p;
-	return p;
+	return NULL;
 }
 
 
@@ -96,12 +91,9 @@ int initdevice(char *filename)
 			throw FilesystemErrorException();
 		}
 
-		printQueue = new TaskQueue();
-		finishedIDs = new IDList();
-		unfinishedIDs = new IDList();
-
-	//TODO create the daemon thread that would do all the writing
-	//TODO unlock the unitializing mutex and destroy it
+		printQueue = new IDQueue();
+		allTasks = new TaskList();
+		pthread_create (&daemonThread, NULL, writingFunc, NULL);
 		pthreadMutexUnlock(&initMutex);
 	}
 	catch (SystemErrorException& e)
@@ -124,38 +116,50 @@ int initdevice(char *filename)
 int write2device(char *buffer, int length)
 {
 	try{
+		//initdevice must be called before calling any function
 		if (!initialized)
 		{
 			throw LibraryErrorException();
 		}
-		int newID;
-		//if this is the first task we create, the ID is 0
-		if (finishedIDs->isEmpty() && unfinishedIDs->isEmpty())
-		{
-			newID = 0;
-		}
-		//else, it is either the lowest free ID or the next ID
-		else
-		{
-			newID = min (finishedIDs->lowestID(), unfinishedIDs->highestID() +1);
-		}
-
+		int newID = allTasks->getFreeID();
 		printTask newTask(newID, buffer, length);
-		//TODO create a new writing task
-		//TODO push it to the task queue
-		//TODO push its id to unfinished list
+		printQueue->push(newID);
+		allTasks->addTask(newID);
+		//TODO broadcastCond?
+		return newID;
 	}
-	catch (LibraryErrorException& e)
+	catch (exception& e)
 	{
-
+		//TODO print the exception message
+		return FAIL;
 	}
-
-	return SUCCESS;
 }
 
 int flush2device(int task_id)
 {
-	return SUCCESS;
+	try
+	{
+		if (!initialized)
+		{
+			throw LibraryErrorException();
+		}
+
+		if (task_id < 0 || task_id > allTasks->size())
+		{
+			throw LibraryErrorException();
+		}
+		//TODO not finished
+	}
+	catch ( TidNotFoundException& e)
+	{
+		//TODO print error message
+		return TID_NOT_FOUND_ERROR;
+	}
+	catch (exception& e)
+	{
+		//TODO print error message
+		return FAIL;
+	}
 }
 
 int wasItWritten(int task_id)
