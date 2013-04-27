@@ -9,19 +9,19 @@
 #include "TaskList.h"
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 int main ()
 {
-	TaskList * tl = new TaskList();
+	TaskList tl;
+	initdevice("bla.txt");
+	char * buf = "abcdefg\n";
+	for (int var = 0; var < 10000; ++var) {
+		write2device(buf,strlen(buf));
+	}
+	closedevice();
 
-	char * buf = "sadsadsa";
-	char * data = (char*)malloc(strlen(buf));
-	tl->addTask(data);
-	Task* ts = tl->popTask();
-	delete ts;
-	data = (char*)malloc(strlen(buf));
-	tl->addTask(data);
-	delete ts;
+	wait4close();
 	cout<<"\nFIN\n";
 }
 

@@ -15,7 +15,6 @@
 #include <set>
 #include <map>
 #include "pthread.h"
-#include "printTask.h"
 #include <malloc.h>
 
 #include <iostream>
@@ -38,6 +37,7 @@ struct Task {
 		free(data);
 		pthread_cond_broadcast(&sig);
 		pthread_cond_destroy(&sig);
+		pthread_mutex_destroy(&mut);
 	}
 	;
 };
@@ -52,7 +52,8 @@ public:
 	TaskList();
 	~TaskList();
 	int addTask(char * );
-	Task * popTask();
+	Task * front() const ;
+	int popTask();
 	location findTid(int tid) const;
 	pthread_mutex_t* getSignalMutex(int tid) const;
 	pthread_cond_t* getSignal(int tid) const;

@@ -9,17 +9,13 @@
 #include <cstdio>
 #include "pthread.h"
 #include <algorithm>
+#include <cstring>
 
 #include "outputdevice.h"
-#include "IDQueue.h"
-#include "printTask.h"
-#include "exceptions.h"
 #include "TaskList.h"
-#include "wrappedFunctions.h"
 
 #define LIB_ERROR "Output device library error\n"
 #define SYS_ERROR "system error\n"
-
 
 #define YES 0
 #define NO 1
@@ -36,12 +32,13 @@ using namespace std;
 pthread_mutex_t initMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t addTask;
 pthread_mutex_t writeMutex;
+pthread_cond_t empty;
+pthread_mutex_t emptyMut;
 pthread_t daemonThread;
 
-bool closing = true;
+bool closing = false;
 bool initialized = false;
-TaskList* allTasks = NULL;
-IDQueue* printQueue = NULL;
+TaskList allTasks;
 FILE* diskFile = NULL;
 int printCounter = 0;
 
@@ -49,15 +46,6 @@ int printCounter = 0;
 void closeEverything()
 {
 	//TODO - destroy mutexes?
-	if (printQueue != NULL)
-	{
-		delete printQueue;
-	}
-
-	if (allTasks != NULL)
-	{
-		delete allTasks;
-	}
 
 	if (diskFile != NULL)
 	{
@@ -70,12 +58,33 @@ void closeEverything()
 //The entry point to the writing daemon thread
 void* writingFunc(void *)
 {
+	//cout<<"writing\n";//debug
+	Task * firstTask;
+	while (true)
+	{
+		firstTask = allTasks.front();
+		if (firstTask != NULL)
+		{
+			allTasks.popTask();
+			//cout<<"wrote something\n"; //debug
+			fprintf(diskFile, firstTask->data, "%s");
+			printCounter++;
+			pthread_cond_broadcast(&(firstTask->sig));
+		}
+		else
+		{
+			pthread_cond_broadcast(&empty);
+		}
+	}
 	return NULL;
 }
 
 int initdevice(char *filename)
 {
-	pthreadMutexLock(&initMutex);
+	if (pthread_mutex_lock(&initMutex))
+	{
+		return FAIL;
+	}
 	if (initialized || filename == NULL)
 	{
 		closeEverything();
@@ -90,11 +99,12 @@ int initdevice(char *filename)
 		return FILESYSTEM_ERROR;
 	}
 
-	printQueue = new IDQueue();
-	allTasks = new TaskList();
-//	pthread_create(&daemonThread, NULL, writingFunc, NULL);
+	pthread_create(&daemonThread, NULL, writingFunc, NULL);
 	pthread_mutex_init(&addTask, NULL);
-	pthreadMutexUnlock(&initMutex);
+	if (pthread_mutex_unlock(&initMutex))
+	{
+		return FAIL;
+	}
 	initialized = true;
 	return SUCCESS;
 }
@@ -107,10 +117,17 @@ int write2device(char *buffer, int length)
 	{
 		return FAIL;
 	}
-	pthreadMutexLock(&addTask);
+	if (pthread_mutex_lock(&addTask))
+	{
+		return FAIL;
+	}
 	char * data = (char*) malloc(length);
-	newId = allTasks->addTask(data);
-	pthreadMutexUnlock(&addTask);
+	strcpy(data, buffer);
+	newId = allTasks.addTask(data);
+	if (pthread_mutex_unlock(&addTask))
+	{
+		return FAIL;
+	}
 	return newId;
 }
 
@@ -120,7 +137,7 @@ int flush2device(int task_id)
 	{
 		return FAIL;
 	}
-	location loc = allTasks->findTid(task_id);
+	location loc = allTasks.findTid(task_id);
 	switch (loc)
 	{
 	case NOT_FOUND:
@@ -128,42 +145,18 @@ int flush2device(int task_id)
 	case HISTORY:
 		return OKAY;
 	case RUNNING:
-		pthread_cond_wait(allTasks->getSignal(task_id),
-				allTasks->getSignalMutex(task_id));
+		pthread_cond_wait(allTasks.getSignal(task_id),
+				allTasks.getSignalMutex(task_id));
 		return OKAY;
 
 	}
-	return FAIL;// unreachable , but eclipse is bugging me
-	//else waitforsignal
+	return FAIL; // unreachable , but eclipse is bugging me
 
-//	try
-//	{
-//		if (!initialized)
-//		{
-//			throw LibraryErrorException();
-//		}
-//
-//		if (task_id < 0 || task_id > allTasks->size())
-//		{
-//			throw LibraryErrorException();
-//		}
-//		//TODO not finished
-//	}
-//	catch ( TidNotFoundException& e)
-//	{
-//		//TODO print error message
-//		return TID_NOT_FOUND_ERROR;
-//	}
-//	catch (exception& e)
-//	{
-//		//TODO print error message
-//		return FAIL;
-//	}
 }
 
 int wasItWritten(int task_id)
 {
-	switch(allTasks->findTid(task_id))
+	switch (allTasks.findTid(task_id))
 	{
 	case RUNNING:
 		return NO;
@@ -172,7 +165,7 @@ int wasItWritten(int task_id)
 	case NOT_FOUND:
 		return TID_NOT_FOUND_ERROR;
 	}
-	return FAIL;// unreachable , but eclipse is bugging me
+	return FAIL; // unreachable , but eclipse is bugging me
 }
 
 int howManyWritten()
@@ -195,6 +188,11 @@ int wait4close()
 	{
 		return FAIL;
 	}
+	pthread_mutex_lock(&emptyMut);
+	pthread_cond_wait(&empty, &emptyMut);
+	pthread_mutex_destroy(&emptyMut);
+	closing = false;
+	cout << howManyWritten(); //debug
 	return WAITFORCLOSE_SUCCESSFUL;
 }
 

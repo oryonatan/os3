@@ -11,6 +11,7 @@
 
 int TaskList::addTask(char* data)
 {
+	//cout << "adding task "<< data ; //debug
 	int tid = this->getFreeID();
 	if (tid == FAIL)
 	{
@@ -73,11 +74,16 @@ int TaskList::getFreeID()
 	return FAIL;
 }
 
-Task * TaskList::popTask()
+Task * TaskList::front() const
 {
-	//TODO: check that dtor is not called before here
-	Task * ret = tasks.front();
+	if (tasks.empty()) return NULL ;
+	return tasks.front();
+}
+
+int TaskList::popTask()
+{
+	//cout << "task popped\n" ;//debug;
 	tasks.pop();
-	ids.erase(ret->id);
-	return ret;
+	ids.erase(front()->id);
+	return OKAY;
 }
