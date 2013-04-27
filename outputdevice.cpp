@@ -31,9 +31,11 @@
 using namespace std;
 
 pthread_mutex_t initMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t writeMutex;
+pthread_mutex_t addTask;
+pthread_mutex_t writeMutex ;
 pthread_t daemonThread;
 
+bool closing = true;
 bool initialized = false;
 TaskList* allTasks = NULL;
 IDQueue* printQueue = NULL;
@@ -74,14 +76,12 @@ void* writingFunc (void *)
 int initdevice(char *filename) {
 	pthreadMutexLock(&initMutex);
 	if (initialized || filename == NULL) {
-		cerr << LIB_ERROR;
 		closeEverything();
 		pthread_mutex_unlock(&initMutex);
 		return FAIL;
 	}
 
 	if ((diskFile = fopen(filename, APPEND)) == NULL) {
-		cerr << SYS_ERROR;
 		closeEverything();
 		pthread_mutex_unlock(&initMutex);
 		return FILESYSTEM_ERROR;
@@ -90,6 +90,7 @@ int initdevice(char *filename) {
 	printQueue = new IDQueue();
 	allTasks = new TaskList();
 	pthread_create(&daemonThread, NULL, writingFunc, NULL);
+	pthread_mutex_init(&addTask,NULL);
 	pthreadMutexUnlock(&initMutex);
 	initialized = true;
 	return SUCCESS;
@@ -97,51 +98,47 @@ int initdevice(char *filename) {
 
 int write2device(char *buffer, int length)
 {
-	try{
-		//initdevice must be called before calling any function
-		if (!initialized)
-		{
-			throw LibraryErrorException();
-		}
-		int newID = allTasks->getFreeID();
-		printTask newTask(newID, buffer, length);
-		printQueue->push(newID);
-		allTasks->addTask(newID);
-		//TODO broadcastCond?
-		return newID;
-	}
-	catch (exception& e)
-	{
-		//TODO print the exception message
+	//initdevice must be called before calling any function
+	if (!initialized || closing) {
 		return FAIL;
 	}
+	pthreadMutexLock(&addTask);
+
+//	int newID = allTasks->getFreeID();
+//	printTask newTask(newID, buffer, length);
+//	printQueue->push(newID);
+//	allTasks->addTask(buffer);
+	pthreadMutexUnlock(&addTask);
+	//TODO broadcastCond?
+//	return newID;
+
 }
 
 int flush2device(int task_id)
 {
-	try
-	{
-		if (!initialized)
-		{
-			throw LibraryErrorException();
-		}
-
-		if (task_id < 0 || task_id > allTasks->size())
-		{
-			throw LibraryErrorException();
-		}
-		//TODO not finished
-	}
-	catch ( TidNotFoundException& e)
-	{
-		//TODO print error message
-		return TID_NOT_FOUND_ERROR;
-	}
-	catch (exception& e)
-	{
-		//TODO print error message
-		return FAIL;
-	}
+//	try
+//	{
+//		if (!initialized)
+//		{
+//			throw LibraryErrorException();
+//		}
+//
+//		if (task_id < 0 || task_id > allTasks->size())
+//		{
+//			throw LibraryErrorException();
+//		}
+//		//TODO not finished
+//	}
+//	catch ( TidNotFoundException& e)
+//	{
+//		//TODO print error message
+//		return TID_NOT_FOUND_ERROR;
+//	}
+//	catch (exception& e)
+//	{
+//		//TODO print error message
+//		return FAIL;
+//	}
 }
 
 int wasItWritten(int task_id)
@@ -153,15 +150,22 @@ int wasItWritten(int task_id)
 
 int howManyWritten()
 {
-	return 0;
+	if (closing){
+		return FAIL;
+	}
+	return printCounter;
 }
 
 void closedevice()
 {
+	closing = true;
 }
 
 int wait4close()
 {
+	if (!closing) {
+		return FAIL;
+	}
 	return WAITFORCLOSE_SUCCESSFUL;
 }
 
