@@ -7,37 +7,77 @@
 
 #include "TaskList.h"
 #include <limits.h>
-int TaskList::addTask(char* data) {
+#include <memory>
+
+int TaskList::addTask(char* data)
+{
 	int tid = this->getFreeID();
-	if (tid == FAIL) {
+	if (tid == FAIL)
+	{
 		return FAIL;
 	}
-	tasks.push(Task(tid, data));
-	return OKAY;
+	tasks.push(new Task(tid, data));
+	return tid;
 }
 
 TaskList::TaskList() :
-		tasks() {
+		tasks(), ids(), history()
+{
 }
 
-TaskList::~TaskList() {
-
-	queue<Task> empty;
-	swap(this->tasks, empty);
+location TaskList::findTid(int tid) const
+{
+	if(ids.find(tid) != ids.end() )
+	{
+		return RUNNING;
+	}
+	else if(history.find(tid) != history.end()){
+		return HISTORY;
+	}
+	return NOT_FOUND;
 }
 
-int TaskList::getFreeID() {
-	for (int i = 0; i <= INT_MAX; ++i) {
-		if (ids.find(i) == ids.end()) {
+pthread_mutex_t* TaskList::getSignalMutex(int tid) const
+{
+	return &(ids.find(tid)->second->mut);
+}
+
+pthread_cond_t*  TaskList::getSignal(int tid) const
+{
+	return &(ids.find(tid)->second->sig);
+}
+
+void TaskList::delteAllTasks()
+{
+	while (!tasks.empty())
+	{
+		delete (tasks.front());
+		tasks.pop();
+	}
+}
+
+TaskList::~TaskList()
+{
+	delteAllTasks();
+}
+
+int TaskList::getFreeID()
+{
+	for (int i = 0; i <= INT_MAX; ++i)
+	{
+		if (ids.find(i) == ids.end())
+		{
 			return i;
 		}
 	}
 	return FAIL;
 }
 
-Task TaskList::popTask(){
-	Task ret = tasks.front();
+Task * TaskList::popTask()
+{
+	//TODO: check that dtor is not called before here
+	Task * ret = tasks.front();
 	tasks.pop();
-	ids.erase(ids.find(ret.id));
+	ids.erase(ret->id);
 	return ret;
 }
