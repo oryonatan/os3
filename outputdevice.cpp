@@ -17,6 +17,10 @@
 #include "TaskList.h"
 #include "wrappedFunctions.h"
 
+
+#define LIB_ERROR "Output device library error\n"
+#define SYS_ERROR "system error\n"
+
 #define SUCCESS 0
 #define FILESYSTEM_ERROR -2
 #define TID_NOT_FOUND_ERROR -2
@@ -40,7 +44,6 @@ int printCounter = 0;
 //frees the memory in case of shutdown caused by exception
 void closeEverything()
 {
-
 	//TODO - destroy mutexes?
 	if (printQueue != NULL)
 	{
@@ -49,17 +52,15 @@ void closeEverything()
 
 	if (allTasks != NULL)
 	{
-		delete printQueue;
+		delete allTasks;
 	}
 
 	if (diskFile != NULL )
 	{
 		fclose (diskFile);
 	}
-
 	initialized = false;
 	printCounter = 0;
-
 }
 
 
@@ -70,45 +71,26 @@ void* writingFunc (void *)
 }
 
 
-int initdevice(char *filename)
-{
-	try
-	{
-
-		pthreadMutexLock(&initMutex);
-		if (initialized)
-		{
-			throw LibraryErrorException();
-		}
-
-		if (filename == NULL)
-		{
-			throw LibraryErrorException();
-		}
-
-		if ((diskFile = fopen (filename, APPEND)) == NULL)
-		{
-			throw FilesystemErrorException();
-		}
-
-		printQueue = new IDQueue();
-		allTasks = new TaskList();
-		pthread_create (&daemonThread, NULL, writingFunc, NULL);
-		pthreadMutexUnlock(&initMutex);
-	}
-	catch (SystemErrorException& e)
-	{
+int initdevice(char *filename) {
+	pthreadMutexLock(&initMutex);
+	if (initialized || filename == NULL) {
+		cerr << LIB_ERROR;
 		closeEverything();
 		pthread_mutex_unlock(&initMutex);
 		return FAIL;
 	}
 
-	catch (FilesystemErrorException& e)
-	{
+	if ((diskFile = fopen(filename, APPEND)) == NULL) {
+		cerr << SYS_ERROR;
 		closeEverything();
 		pthread_mutex_unlock(&initMutex);
 		return FILESYSTEM_ERROR;
 	}
+
+	printQueue = new IDQueue();
+	allTasks = new TaskList();
+	pthread_create(&daemonThread, NULL, writingFunc, NULL);
+	pthreadMutexUnlock(&initMutex);
 	initialized = true;
 	return SUCCESS;
 }
