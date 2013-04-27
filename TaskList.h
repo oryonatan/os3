@@ -25,8 +25,6 @@ public:
 	printTask& operator [] (int tid);
 	bool wasItWritten (int tid);
 
-
-
 private:
 	pthread_mutex_t listMutex;
 	std::vector<int> tasks;
