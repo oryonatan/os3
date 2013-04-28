@@ -1,0 +1,10 @@
+smdyshel, oryonatan
+Maria Dyshel (32212808), Yonathan Oren (300704327)
+EX: 2
+
+FILES: 
+outputdevice.cpp -- the implementation of the library 
+TaskList.h -- the definition of the data structure that contains all 
+	the printing tasks
+TaskList.cpp -- the implementation of the data structure that contains 
+		all the printing tasks

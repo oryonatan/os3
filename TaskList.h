@@ -21,17 +21,26 @@
 
 using namespace std;
 
+//The Task struct implements a task to be printed to the disk
+
 struct Task {
+	//The ID of the struct given by the TaskList (the lowes free ID)
 	int id;
+	//The buffer to be printed
 	char * data;
+	//The conditional variable used to signify the task was printed
 	pthread_cond_t sig;
+	//The mutex associated with the conditional variable
 	pthread_mutex_t mut;
+
+	//Constructor
 	Task(int id, char* data) :
 			id(id), data(data) {
 		pthread_cond_init(&sig ,NULL);
 		pthread_mutex_init(&mut,NULL);
 	}
 	;
+	//Destructor
 	~Task() {
 		cout<< "Deleting task\n"; //DEBUG
 		free(data);
@@ -41,29 +50,48 @@ struct Task {
 	}
 	;
 };
+
+//Describes a position of a written task whether it was written, still waits to be written, or not found
 enum location{
 	RUNNING,HISTORY,NOT_FOUND
 };
 
+
+//The TaskList class includes all the tasks that are, were, or will be written by outputdevice.
+// It controls both the printed queue for the tasks to be written, a history of all the written
+//tasks, and enables to access to the tasks by their ID.
+//The TaskList is thread safe and protects its inner data structures by mutexes.
 class TaskList {
-	//Tasklist is not thread safe , all operations should be used
-	// under mutexes
 public:
 	TaskList();
 	~TaskList();
+	//Add a task to the tail of the task queue
 	int addTask(char * );
+	//Returns the head of the printing queue (without popping it)
 	Task * front() const ;
+	//Pop the head of the printing queue
 	int popTask();
-	location findTid(int tid) const;
+	//Searches the data structures for the printing task with the given tid,
+	//and returns whether the task is found in the printing queue or in history
+	location findTid(int tid);
+	//returns the mutex associated with the task with given tid
 	pthread_mutex_t* getSignalMutex(int tid) const;
+	//returns the conditional variable associate with the task with the given tid
 	pthread_cond_t* getSignal(int tid) const;
 private:
+	//Get the lowest ID that is not in the printing queue
 	int getFreeID();
-	void delteAllTasks();
+	//delete all the tasks
+	void deleteAllTasks();
 
+	//the printing queue
 	queue<Task *> tasks;
+	//the structure that enables fetching the task by id
 	map <int,Task *> ids;
+	//history of all the tasks that were printed to the device.
 	set<int> history;
+	//the mutex that protects the data structures
+	pthread_mutex_t listMutex;
 };
 
 #endif /* TaskList_H_ */
