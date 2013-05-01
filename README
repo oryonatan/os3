@@ -8,3 +8,15 @@ TaskList.h -- the definition of the data structure that contains all
 	the printing tasks
 TaskList.cpp -- the implementation of the data structure that contains 
 		all the printing tasks
+
+REMARKS:
+* The printing tasks are managed by the TaskList class. This class contains the queue of unprinted
+tasks, keeps history of all tasks already printed, and allows access to the tasks by their ID.
+
+* Each task contains a conditional variable that allows it to signal once it's printed 
+(for flush2device purposes) and a mutex associated with it. In addition, all the internal
+datastructures in TaskList is protected by a mutex. An additional mutex protects the 
+initialization process.
+
+ANSWERS:
+Nothing was asked.
