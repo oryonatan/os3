@@ -13,16 +13,16 @@
 
 int main ()
 {
-	TaskList tl;
+//	TaskList tl;
 	initdevice("bla.txt");
-	char * buf = "abcdefg\n";
-	for (int var = 0; var < 10000; ++var) {
-		write2device(buf,strlen(buf));
-	}
+//	char * buf = "abcdefg\n";
+//	for (int var = 0; var < 10000; ++var) {
+//		write2device(buf,strlen(buf));
+//	}
 	closedevice();
-
+//
 	wait4close();
-	cout<<"\nFIN\n";
+//	cout<<"\nFIN\n";
 }
 
 

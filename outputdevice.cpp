@@ -13,9 +13,10 @@
 
 #include "outputdevice.h"
 #include "TaskList.h"
+#include "errno.h"
 
-#define LIB_ERROR_MESSAGE "Output device library error\n"
-#define SYS_ERROR_MESSAGE "system error\n"
+#define LIB_ERROR_MESSAGE "Output device library error"
+#define SYS_ERROR_MESSAGE "system error"
 
 #define YES 0
 #define NO 1
@@ -33,9 +34,6 @@ using namespace std;
 
 //The mutex that makes sure only one initialization process goes at the same time
 pthread_mutex_t initMutex = PTHREAD_MUTEX_INITIALIZER;
-//The mutex that makes sure only one writing task is happening at the same time
-//TODO - Yonatan - are you sure it is necessary?
-pthread_mutex_t writeMutex;
 // Conditional variable that signifies that printing queue is empty
 pthread_cond_t empty;
 //The mutex associated with the conditional variable
@@ -51,6 +49,8 @@ TaskList* allTasks = NULL;
 FILE* diskFile = NULL;
 int printCounter = 0;
 
+
+
 //Helper function that destroys all the resources and frees the memory
 void closeEverything()
 {
@@ -60,10 +60,11 @@ void closeEverything()
 		//TODO - Yonatan - shouldn't we check if fclose succeeds?
 		fclose(diskFile);
 	}
-	delete allTasks;
-	pthread_mutex_destroy (&writeMutex);
+	if (allTasks != NULL)
+	{
+		delete allTasks;
+	}
 	initialized = false;
-	printCounter = 0;
 }
 
 //The entry point to the writing daemon thread
@@ -72,16 +73,16 @@ void* writingFunc(void *)
 	//cerr<<"writing\n";//debug
 	Task * firstTask;
 
-	while(initialized)
+	while (initialized)
 	{
 		firstTask = allTasks->front();
 		if (firstTask != NULL)
 		{
-			allTasks->popTask();
 			//cerr<<"wrote something\n"; //debug
 			fprintf(diskFile, firstTask->data, "%s");
 			printCounter++;
 			pthread_cond_broadcast(&(firstTask->sig));
+			allTasks->popTask();
 		}
 		else
 		{
@@ -105,7 +106,6 @@ int initdevice(char *filename)
 	}
 	if (initialized || filename == NULL)
 	{
-		closeEverything();
 		pthread_mutex_unlock(&initMutex);
 		cerr << LIB_ERROR_MESSAGE << endl;
 		return FAIL;
@@ -113,14 +113,19 @@ int initdevice(char *filename)
 
 	if ((diskFile = fopen(filename, APPEND)) == NULL)
 	{
-		closeEverything();
 		pthread_mutex_unlock(&initMutex);
 		cerr << SYS_ERROR_MESSAGE << endl;
 		return FILESYSTEM_ERROR;
 	}
 
 	allTasks = new TaskList();
-	pthread_create(&daemonThread, NULL, writingFunc, NULL);
+	if (pthread_create(&daemonThread, NULL, writingFunc, NULL))
+	{
+		cerr << SYS_ERROR_MESSAGE << endl;
+		delete allTasks;
+		return FAIL;
+
+	}
 	if (pthread_mutex_unlock(&initMutex))
 	{
 		cerr << SYS_ERROR_MESSAGE << endl;
@@ -162,7 +167,7 @@ int flush2device(int task_id)
 	case HISTORY:
 		return OKAY;
 	case RUNNING:
-		pthread_mutex_lock (allTasks->getSignalMutex(task_id));
+		pthread_mutex_lock(allTasks->getSignalMutex(task_id));
 		pthread_cond_wait(allTasks->getSignal(task_id),
 				allTasks->getSignalMutex(task_id));
 		return OKAY;
@@ -213,7 +218,7 @@ int wait4close()
 	pthread_mutex_destroy(&emptyMut);
 	closeEverything();
 	closing = false;
-	cout << howManyWritten(); //debug
+	//cout << howManyWritten(); //debug
 	return WAITFORCLOSE_SUCCESSFUL;
 }
 
