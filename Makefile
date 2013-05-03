@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall -I.
+CFLAGS = -g -Wall -I. -std=c++11
 
 
 all: liboutputdevice.a 

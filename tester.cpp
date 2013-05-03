@@ -22,7 +22,7 @@ int main ()
 	closedevice();
 //
 	wait4close();
-//	cout<<"\nFIN\n";
+	cout<<"\nFIN\n";
 }
 
 

@@ -10,7 +10,7 @@
 #include "pthread.h"
 #include <algorithm>
 #include <cstring>
-
+#include <sstream>
 #include "outputdevice.h"
 #include "TaskList.h"
 #include "errno.h"
@@ -45,7 +45,7 @@ pthread_t daemonThread;
 bool closing = false;
 //Signifies whether an initializing function was called succesfully
 bool initialized = false;
-TaskList* allTasks = NULL;
+unique_ptr<TaskList> allTasks(new TaskList);
 FILE* diskFile = NULL;
 int printCounter = 0;
 
@@ -60,18 +60,15 @@ void closeEverything()
 		//TODO - Yonatan - shouldn't we check if fclose succeeds?
 		fclose(diskFile);
 	}
-	if (allTasks != NULL)
-	{
-		delete allTasks;
-	}
 	initialized = false;
+	pthread_mutex_destroy(&initMutex);
 }
 
 //The entry point to the writing daemon thread
 void* writingFunc(void *)
 {
 	//cerr<<"writing\n";//debug
-	Task * firstTask;
+	shared_ptr<Task> firstTask;
 
 	while (initialized)
 	{
@@ -79,7 +76,7 @@ void* writingFunc(void *)
 		if (firstTask != NULL)
 		{
 			//cerr<<"wrote something\n"; //debug
-			fprintf(diskFile, firstTask->data, "%s");
+			fprintf(diskFile, firstTask->data->c_str(), "%s");
 			printCounter++;
 			pthread_cond_broadcast(&(firstTask->sig));
 			allTasks->popTask();
@@ -118,11 +115,9 @@ int initdevice(char *filename)
 		return FILESYSTEM_ERROR;
 	}
 
-	allTasks = new TaskList();
 	if (pthread_create(&daemonThread, NULL, writingFunc, NULL))
 	{
 		cerr << SYS_ERROR_MESSAGE << endl;
-		delete allTasks;
 		return FAIL;
 
 	}
@@ -144,9 +139,7 @@ int write2device(char *buffer, int length)
 		cerr << LIB_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
-
-	char * data = (char*) malloc(length);
-	strcpy(data, buffer);
+	shared_ptr<string> data(new string(buffer)) ;
 	newId = allTasks->addTask(data);
 	return newId;
 }
@@ -206,6 +199,7 @@ void closedevice()
 
 int wait4close()
 {
+	void* ret = NULL;
 	//TODO - Yonatan - aren't we supposed to call closeDevice somewhere?
 	//why would closing be true?
 	if (!closing)
@@ -218,6 +212,7 @@ int wait4close()
 	pthread_mutex_destroy(&emptyMut);
 	closeEverything();
 	closing = false;
+	pthread_join(daemonThread,&ret);
 	//cout << howManyWritten(); //debug
 	return WAITFORCLOSE_SUCCESSFUL;
 }

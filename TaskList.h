@@ -16,6 +16,7 @@
 #include <map>
 #include "pthread.h"
 #include <malloc.h>
+#include <memory>
 
 #include <iostream>
 
@@ -27,23 +28,22 @@ struct Task {
 	//The ID of the struct given by the TaskList (the lowes free ID)
 	int id;
 	//The buffer to be printed
-	char * data;
+	shared_ptr<string> data;
 	//The conditional variable used to signify the task was printed
 	pthread_cond_t sig;
 	//The mutex associated with the conditional variable
 	pthread_mutex_t mut;
 
 	//Constructor
-	Task(int id, char* data) :
-			id(id), data(data) {
+	Task(int id, shared_ptr<string> instring) :
+			id(id), data(instring) {
 		pthread_cond_init(&sig ,NULL);
 		pthread_mutex_init(&mut,NULL);
 	}
 	;
 	//Destructor
 	~Task() {
-		cout<< "Deleting task\n"; //DEBUG
-		free(data);
+//		cout<< "Deleting task\n"; //DEBUG
 		pthread_cond_broadcast(&sig);
 		pthread_cond_destroy(&sig);
 		pthread_mutex_destroy(&mut);
@@ -66,9 +66,9 @@ public:
 	TaskList();
 	~TaskList();
 	//Add a task to the tail of the task queue
-	int addTask(char * );
+	int addTask(shared_ptr<string>);
 	//Returns the head of the printing queue (without popping it)
-	Task * front() const ;
+	shared_ptr<Task> front() const ;
 	//Pop the head of the printing queue
 	int popTask();
 	//Searches the data structures for the printing task with the given tid,
@@ -85,9 +85,9 @@ private:
 	void deleteAllTasks();
 
 	//the printing queue
-	queue<Task *> tasks;
+	queue<shared_ptr<Task>> tasks;
 	//the structure that enables fetching the task by id
-	map <int,Task *> ids;
+	map <int,shared_ptr<Task>> ids;
 	//history of all the tasks that were printed to the device.
 	set<int> history;
 	//the mutex that protects the data structures

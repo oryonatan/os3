@@ -9,7 +9,7 @@
 #include <limits.h>
 #include <memory>
 
-int TaskList::addTask(char* data)
+int TaskList::addTask(shared_ptr<string> data)
 {
 	pthread_mutex_lock (&listMutex);
 	//cout << "adding task "<< data ; //debug
@@ -19,7 +19,8 @@ int TaskList::addTask(char* data)
 		pthread_mutex_unlock (&listMutex);
 		return FAIL;
 	}
-	tasks.push(new Task(tid, data));
+	shared_ptr<Task> newTask(new Task(tid, data));
+	tasks.push(newTask);
 	pthread_mutex_unlock (&listMutex);
 	return tid;
 }
@@ -60,7 +61,6 @@ void TaskList::deleteAllTasks()
 {
 	while (!tasks.empty())
 	{
-		delete (tasks.front());
 		tasks.pop();
 	}
 }
@@ -86,7 +86,7 @@ int TaskList::getFreeID()
 	return FAIL;
 }
 
-Task * TaskList::front() const
+shared_ptr<Task> TaskList::front() const
 {
 	if (tasks.empty()) return NULL ;
 	return tasks.front();
