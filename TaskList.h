@@ -91,7 +91,8 @@ private:
 	//history of all the tasks that were printed to the device.
 	set<int> history;
 	//the mutex that protects the data structures
-	pthread_mutex_t listMutex;
+	pthread_mutex_t listMutex = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_t freeIdMutex = PTHREAD_MUTEX_INITIALIZER;
 };
 
 #endif /* TaskList_H_ */

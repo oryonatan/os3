@@ -54,10 +54,8 @@ int printCounter = 0;
 //Helper function that destroys all the resources and frees the memory
 void closeEverything()
 {
-
 	if (diskFile != NULL)
 	{
-		//TODO - Yonatan - shouldn't we check if fclose succeeds?
 		fclose(diskFile);
 	}
 	initialized = false;
@@ -83,11 +81,11 @@ void* writingFunc(void *)
 		}
 		else
 		{
-			pthread_cond_broadcast(&empty);
 			// if the thread runs after closeDevice was called (
 			if (closing)
 			{
 				closeEverything();
+				return NULL;
 			}
 		}
 	}
@@ -208,11 +206,9 @@ int wait4close()
 		return FAIL;
 	}
 	pthread_mutex_lock(&emptyMut);
-	pthread_cond_wait(&empty, &emptyMut);
 	pthread_mutex_destroy(&emptyMut);
-	closeEverything();
-	closing = false;
 	pthread_join(daemonThread,&ret);
+	closing = false;
 	//cout << howManyWritten(); //debug
 	return WAITFORCLOSE_SUCCESSFUL;
 }

@@ -68,21 +68,21 @@ void TaskList::deleteAllTasks()
 TaskList::~TaskList()
 {
 	deleteAllTasks();
+	pthread_mutex_destroy (&freeIdMutex);
 	pthread_mutex_destroy (&listMutex);
 }
 
 int TaskList::getFreeID()
 {
-	pthread_mutex_lock (&listMutex);
+	pthread_mutex_lock (&freeIdMutex);
 	for (int i = 0; i <= INT_MAX; ++i)
 	{
 		if (ids.find(i) == ids.end())
-		{
-			pthread_mutex_unlock (&listMutex);
+		{	pthread_mutex_unlock (&freeIdMutex);
 			return i;
 		}
 	}
-	pthread_mutex_unlock (&listMutex);
+	pthread_mutex_unlock (&freeIdMutex);
 	return FAIL;
 }
 
