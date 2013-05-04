@@ -78,6 +78,10 @@ public:
 	pthread_mutex_t* getSignalMutex(int tid) const;
 	//returns the conditional variable associate with the task with the given tid
 	pthread_cond_t* getSignal(int tid) const;
+	//adds to history
+	void done(int tid);
+	int idsLeft() const {return ids.size();};
+	int histLeft() const {return history.size();};
 private:
 	//Get the lowest ID that is not in the printing queue
 	int getFreeID();

@@ -11,20 +11,20 @@
 #include <string.h>
 #include <pthread.h>
 
-int main ()
-{
-//	TaskList tl;
-	initdevice("bla.txt");
-	char * buf = "abcdefg\n";
-	for (int var = 0; var < 10000; ++var) {
-		write2device(buf,strlen(buf));
-	}
-	closedevice();
+//int main ()
+//{
+////	TaskList tl;
+//	initdevice("bla.txt");
+//	char * buf = "abcdefg\n";
+//	for (int var = 0; var < 10000; ++var) {
+//		write2device(buf,strlen(buf));
+//	}
+//	closedevice();
+////
+//	wait4close();
+//	cout<<"\nFIN\n";
+//}
 //
-	wait4close();
-	cout<<"\nFIN\n";
-}
-
-
-
-
+//
+//
+//

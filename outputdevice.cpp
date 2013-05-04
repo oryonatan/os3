@@ -5,6 +5,8 @@
  *      Author: maria
  */
 
+
+
 #include <iostream>
 #include <cstdio>
 #include "pthread.h"
@@ -26,7 +28,9 @@
 #define FILESYSTEM_ERROR -2
 #define TID_NOT_FOUND_ERROR -2
 #define WAITFORCLOSE_SUCCESSFUL 1
+#define FLUSH_SUCCESFUL 1
 #define FAIL -1
+#define WAIT_FOR_CLOSE_TO_EARLY -2
 
 #define APPEND "a"
 
@@ -34,10 +38,6 @@ using namespace std;
 
 //The mutex that makes sure only one initialization process goes at the same time
 pthread_mutex_t initMutex = PTHREAD_MUTEX_INITIALIZER;
-// Conditional variable that signifies that printing queue is empty
-pthread_cond_t empty;
-//The mutex associated with the conditional variable
-pthread_mutex_t emptyMut;
 //The daemon thread that does all the printing
 pthread_t daemonThread;
 
@@ -45,11 +45,20 @@ pthread_t daemonThread;
 bool closing = false;
 //Signifies whether an initializing function was called succesfully
 bool initialized = false;
-unique_ptr<TaskList> allTasks(new TaskList);
+unique_ptr<TaskList> allTasks;
 FILE* diskFile = NULL;
 int printCounter = 0;
 
-
+int lockAndInit(pthread_mutex_t * mut)
+{
+	int lockStatus =  pthread_mutex_lock(mut) ;
+	if (lockStatus == EINVAL)
+	{
+		pthread_mutex_init(mut,NULL);
+		return pthread_mutex_lock(mut);
+	}
+	return lockStatus;
+}
 
 //Helper function that destroys all the resources and frees the memory
 void closeEverything()
@@ -73,10 +82,11 @@ void* writingFunc(void *)
 		firstTask = allTasks->front();
 		if (firstTask != NULL)
 		{
-			//cerr<<"wrote something\n"; //debug
-			fprintf(diskFile, firstTask->data->c_str(), "%s");
+//			cout<<"wrote something\n " << strlen(firstTask->data->c_str()) <<endl;//debug
 			printCounter++;
+			fprintf(diskFile, firstTask->data->c_str(), "%s");
 			pthread_cond_broadcast(&(firstTask->sig));
+			allTasks->done(firstTask->id);
 			allTasks->popTask();
 		}
 		else
@@ -94,11 +104,13 @@ void* writingFunc(void *)
 
 int initdevice(char *filename)
 {
-	if (pthread_mutex_lock(&initMutex))
+	if (lockAndInit(&initMutex))
 	{
 		cerr << SYS_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
+	allTasks= unique_ptr<TaskList>(new TaskList());
+	printCounter = 0;
 	if (initialized || filename == NULL)
 	{
 		pthread_mutex_unlock(&initMutex);
@@ -137,14 +149,20 @@ int write2device(char *buffer, int length)
 		cerr << LIB_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
-	shared_ptr<string> data(new string(buffer)) ;
+	shared_ptr<string> data(new string((char *)buffer)) ;
 	newId = allTasks->addTask(data);
+//	cout << "added task" <<endl ;//debug
 	return newId;
 }
 
 int flush2device(int task_id)
 {
-	if (!initialized || task_id < 0)
+	if (task_id <0 )
+	{
+		cerr << LIB_ERROR_MESSAGE << endl;
+		return TID_NOT_FOUND_ERROR;
+	}
+	if (!initialized)
 	{
 		cerr << LIB_ERROR_MESSAGE << endl;
 		return FAIL;
@@ -154,15 +172,14 @@ int flush2device(int task_id)
 	{
 	case NOT_FOUND:
 		cerr << LIB_ERROR_MESSAGE << endl;
-		return FAIL;
+		return TID_NOT_FOUND_ERROR;
 	case HISTORY:
-		return OKAY;
+		return FLUSH_SUCCESFUL;
 	case RUNNING:
-		pthread_mutex_lock(allTasks->getSignalMutex(task_id));
+		lockAndInit(allTasks->getSignalMutex(task_id));
 		pthread_cond_wait(allTasks->getSignal(task_id),
 				allTasks->getSignalMutex(task_id));
-		return OKAY;
-
+		return FLUSH_SUCCESFUL;
 	}
 	return FAIL; // unreachable , but eclipse is bugging me
 
@@ -185,7 +202,10 @@ int wasItWritten(int task_id)
 
 int howManyWritten()
 {
-
+	if (!initialized)
+	{
+		return FAIL;
+	}
 	return printCounter;
 }
 
@@ -198,16 +218,17 @@ void closedevice()
 int wait4close()
 {
 	void* ret = NULL;
-	//TODO - Yonatan - aren't we supposed to call closeDevice somewhere?
-	//why would closing be true?
-	if (!closing)
+
+	if (!(closing && initialized))
 	{
 		cerr << LIB_ERROR_MESSAGE << endl;
+		return WAIT_FOR_CLOSE_TO_EARLY;
+	}
+	if(pthread_join(daemonThread,&ret))
+	{
+		cerr << SYS_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
-	pthread_mutex_lock(&emptyMut);
-	pthread_mutex_destroy(&emptyMut);
-	pthread_join(daemonThread,&ret);
 	closing = false;
 	//cout << howManyWritten(); //debug
 	return WAITFORCLOSE_SUCCESSFUL;
