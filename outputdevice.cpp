@@ -17,6 +17,7 @@
 #include "TaskList.h"
 #include "errno.h"
 #include <fstream>
+#include "limits.h"
 
 #define LIB_ERROR_MESSAGE "Output device library error"
 #define SYS_ERROR_MESSAGE "system error"
@@ -48,7 +49,7 @@ bool closing = false;
 bool initialized = false;
 unique_ptr<TaskList> allTasks;
 ofstream diskFile;
-int printCounter = 0;
+long printCounter = 0;
 
 int lockAndInit(pthread_mutex_t * mut)
 {
@@ -75,7 +76,6 @@ void closeEverything()
 //The entry point to the writing daemon thread
 void* writingFunc(void *)
 {
-	//cerr<<"writing\n";//debug
 	shared_ptr<Task> firstTask;
 
 	while (initialized)
@@ -86,6 +86,11 @@ void* writingFunc(void *)
 
 			firstTask = allTasks->front();
 			diskFile.write(&(firstTask->data)[0],firstTask->length);
+			if(diskFile.fail())
+			{
+				cerr << SYS_ERROR_MESSAGE << endl;
+				exit (-2);
+			}
 			printCounter++;
 			allTasks->done(firstTask->id);
 			allTasks->popTask();
@@ -151,7 +156,6 @@ int write2device(char *buffer, int length)
 	}
 	vector<char> data(buffer,buffer+length);
 	newId = allTasks->addTask(data,length);
-	//cout << "added task"<<endl ;//debug
 	return newId;
 }
 
@@ -206,6 +210,7 @@ int howManyWritten()
 	{
 		return FAIL;
 	}
+	if (printCounter > INT_MAX) return INT_MIN;
 	return printCounter;
 }
 
@@ -230,7 +235,6 @@ int wait4close()
 		return FAIL;
 	}
 	closing = false;
-	//cout << howManyWritten(); //debug
 	return WAITFORCLOSE_SUCCESSFUL;
 }
 
