@@ -411,11 +411,9 @@ void test_9()
 	}
 
 
-	cout<< howManyWritten() << endl;
-	cout <<flush2device(ret_1); // if already written - we don't care
-	cout<< howManyWritten() << endl;
-	cout <<flush2device(ret_2);
-	cout<< howManyWritten() << endl;
+flush2device(ret_1); // if already written - we don't care
+flush2device(ret_2);
+
 
 	if ( howManyWritten() != 2 )
 	{
@@ -589,8 +587,6 @@ void test_12()
 
      for ( int i = 0 ; i < TEST_12_FLUSH ; ++i)
           flush2device(i); //Possible -2 made be returned here, but we dont care
-
-     cout << "done flushing "<< endl;
      if ( howManyWritten() != TEST_12_FLUSH)
      {
           FAILED_TEST("12", "No match between number of tasks then tasks written");
@@ -746,43 +742,43 @@ void test_14()
 }
 
 /* At the tests you want to check */
-//int main()
-//{
-//	freopen("/dev/null", "w", stderr);
-//	if ( mkdir("./Tests",S_IRWXU | S_IRWXG | S_IROTH ) )
-//	{
-//		if ( errno != EEXIST)
-//		{
-//			printf("Failed to create directory for tests. Ended.");
-//			exit(-3);
-//		}
-//
-//	}
-//
-//	int i =0;
-//
-//	/* It is not recommended to enable all tests at once */
-//	while ( i++ < 1) {
-//
-//	test_1();
-//	test_2();
-//	test_3();
-//	test_4();
-//	test_5();
-//	test_6("test_6_7 is a very simple test", strlen("test_6_7 is a very simple test"), 1);
-//	test_7();
-////	test_8();
-//	test_9();
-//	test_10();
-//	test_11();
-//	test_12();
-//	test_13();
-//	test_14();
-//
-//		printf("--------------------Done section number: %d-----------------------------\n", i);
-//	}
-//
-//	return 0;
-//}
+int main()
+{
+	freopen("/dev/null", "w", stderr);
+	if ( mkdir("./Tests",S_IRWXU | S_IRWXG | S_IROTH ) )
+	{
+		if ( errno != EEXIST)
+		{
+			printf("Failed to create directory for tests. Ended.");
+			exit(-3);
+		}
+
+	}
+
+	int i =0;
+
+	/* It is not recommended to enable all tests at once */
+	while ( i++ < 10) {
+
+	test_1();
+	test_2();
+	test_3();
+	test_4();
+	test_5();
+	test_6("test_6_7 is a very simple test", strlen("test_6_7 is a very simple test"), 1);
+	test_7();
+//	test_8();
+	test_9();
+	test_10();
+	test_11();
+	test_12();
+	test_13();
+	test_14();
+
+		printf("--------------------Done section number: %d-----------------------------\n", i);
+	}
+
+	return 0;
+}
 
 
