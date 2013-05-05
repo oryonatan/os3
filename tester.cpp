@@ -16,7 +16,7 @@ int main ()
 //	TaskList tl;
 	initdevice("bla.txt");
 	char * buf = "abcdefg\n";
-	for (int var = 0; var < 1; ++var) {
+	for (int var = 0; var < 1000; ++var) {
 		write2device(buf,strlen(buf));
 	}
 	closedevice();
