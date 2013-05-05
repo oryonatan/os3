@@ -10,7 +10,7 @@
 #include <memory>
 #include "unistd.h"
 
-int TaskList::addTask(shared_ptr<string> data)
+int TaskList::addTask(shared_ptr<char> data,int length)
 {
 	pthread_mutex_lock(&listMutex);
 	int tid = this->getFreeID();
@@ -19,7 +19,7 @@ int TaskList::addTask(shared_ptr<string> data)
 		pthread_mutex_unlock(&listMutex);
 		return FAIL;
 	}
-	shared_ptr<Task> newTask(new Task(tid, data));
+	shared_ptr<Task> newTask(new Task(tid, data,length));
 	tasks.push(newTask);
 	ids[tid] = newTask;
 	pthread_mutex_unlock(&listMutex);

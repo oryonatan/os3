@@ -16,6 +16,7 @@
 #include "outputdevice.h"
 #include "TaskList.h"
 #include "errno.h"
+#include <fstream>
 
 #define LIB_ERROR_MESSAGE "Output device library error"
 #define SYS_ERROR_MESSAGE "system error"
@@ -46,7 +47,7 @@ bool closing = false;
 //Signifies whether an initializing function was called succesfully
 bool initialized = false;
 unique_ptr<TaskList> allTasks;
-FILE* diskFile = NULL;
+ofstream diskFile;
 int printCounter = 0;
 
 int lockAndInit(pthread_mutex_t * mut)
@@ -65,7 +66,7 @@ void closeEverything()
 {
 	if (diskFile != NULL)
 	{
-		fclose(diskFile);
+		diskFile.close();
 	}
 	initialized = false;
 	pthread_mutex_destroy(&initMutex);
@@ -79,24 +80,24 @@ void* writingFunc(void *)
 
 	while (initialized)
 	{
-		firstTask = allTasks->front();
-		if (firstTask != NULL)
+
+		if (allTasks->idsLeft())
 		{
 //			cout<<"wrote something\n " << strlen(firstTask->data->c_str()) <<endl;//debug
+			firstTask = allTasks->front();
+			diskFile.write((char * const)firstTask->data.get(),firstTask->length);
 			printCounter++;
-			fprintf(diskFile, firstTask->data->c_str(), "%s");
-			pthread_cond_broadcast(&(firstTask->sig));
 			allTasks->done(firstTask->id);
 			allTasks->popTask();
+			pthread_cond_broadcast(&(firstTask->sig));
+
 		}
-		else
+		else if (closing)
 		{
-			// if the thread runs after closeDevice was called (
-			if (closing)
-			{
-				closeEverything();
-				return NULL;
-			}
+			cout << howManyWritten() << "was written" << endl;
+			cout << allTasks->idsLeft() << "ids left; " << endl;
+			closeEverything();
+			return NULL;
 		}
 	}
 	return NULL;
@@ -118,7 +119,8 @@ int initdevice(char *filename)
 		return FAIL;
 	}
 
-	if ((diskFile = fopen(filename, APPEND)) == NULL)
+	diskFile.open(filename,ofstream::app|ofstream::binary);
+	if (!diskFile.is_open())
 	{
 		pthread_mutex_unlock(&initMutex);
 		cerr << SYS_ERROR_MESSAGE << endl;
@@ -149,9 +151,10 @@ int write2device(char *buffer, int length)
 		cerr << LIB_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
-	shared_ptr<string> data(new string((char *)buffer)) ;
-	newId = allTasks->addTask(data);
-//	cout << "added task" <<endl ;//debug
+	shared_ptr<char> data(new char[length]);
+	strncpy(data.get(),buffer,length);
+	newId = allTasks->addTask(data,length);
+	//cout << "added task"<<endl ;//debug
 	return newId;
 }
 

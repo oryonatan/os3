@@ -28,15 +28,17 @@ struct Task {
 	//The ID of the struct given by the TaskList (the lowes free ID)
 	int id;
 	//The buffer to be printed
-	shared_ptr<string> data;
+	shared_ptr<char> data;
+	//Text length
+	int length;
 	//The conditional variable used to signify the task was printed
 	pthread_cond_t sig;
 	//The mutex associated with the conditional variable
 	pthread_mutex_t mut;
 
 	//Constructor
-	Task(int id, shared_ptr<string> instring) :
-			id(id), data(instring) {
+	Task(int id, shared_ptr<char> instring ,int len) :
+			id(id), data(instring),length(len) {
 		pthread_cond_init(&sig ,NULL);
 		pthread_mutex_init(&mut,NULL);
 	}
@@ -66,7 +68,7 @@ public:
 	TaskList();
 	~TaskList();
 	//Add a task to the tail of the task queue
-	int addTask(shared_ptr<string>);
+	int addTask(shared_ptr<char> ,int);
 	//Returns the head of the printing queue (without popping it)
 	shared_ptr<Task> front() const ;
 	//Pop the head of the printing queue

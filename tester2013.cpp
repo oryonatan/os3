@@ -58,6 +58,7 @@ static int compareFileToString ( const char* f_path, const char* str )
 
 	if ( strcmp (file_Content, str) != 0 )
 	{
+		cout << "got "<< file_Content <<"instead of " << str <<endl;
 		return 1;
 	}
 
@@ -384,8 +385,8 @@ void test_9()
 	initdevice("./Tests/test_9");
 
 	// Don't change this factor - or you get very large file in your system
-	char* buf = (char*)malloc(INT_MAX/50 + 1);
-	generate_word (buf, INT_MAX/50 , 1);
+	char* buf = (char*)malloc(INT_MAX/500 + 1);
+	generate_word (buf, INT_MAX/500 , 1);
 
 	int ret_1, ret_2;
 
@@ -398,9 +399,9 @@ void test_9()
 	free(buf);
 	usleep(100000); // give random enough time
 
-	char* buf2 = (char*)malloc(INT_MAX/50 + 1);
+	char* buf2 = (char*)malloc(INT_MAX/500 + 1);
 
-	generate_word (buf2, INT_MAX/50 , 1);
+	generate_word (buf2, INT_MAX/500 , 1);
 
 	ret_2 = write2device(buf2, strlen(buf2));
 	if (ret_2 == -1 )
@@ -428,7 +429,7 @@ void test_9()
 
 	FILE* f = fopen("./Tests/test_9", "r");
 
-	int file_Size = getSizeOfFile(f), expected_Size = 2 * (INT_MAX/50 ) - 2;
+	int file_Size = getSizeOfFile(f), expected_Size = 2 * (INT_MAX/500 ) - 2;
 	if ( file_Size != expected_Size )
 	{
 		FAILED_TEST("9", "Mismatch between ammount of chars in file and the expected value");
@@ -745,43 +746,43 @@ void test_14()
 }
 
 /* At the tests you want to check */
-int main()
-{
-	freopen("/dev/null", "w", stderr);
-	if ( mkdir("./Tests",S_IRWXU | S_IRWXG | S_IROTH ) )
-	{
-		if ( errno != EEXIST)
-		{
-			printf("Failed to create directory for tests. Ended.");
-			exit(-3);
-		}
-
-	}
-
-	int i =0;
-
-	/* It is not recommended to enable all tests at once */
-	while ( i++ < 10) {
-
-	test_1();
-	test_2();
-	test_3();
-	test_4();
-	test_5();
-	test_6("test_6_7 is a very simple test", strlen("test_6_7 is a very simple test"), 1);
-	test_7();
-	test_8();
+//int main()
+//{
+//	freopen("/dev/null", "w", stderr);
+//	if ( mkdir("./Tests",S_IRWXU | S_IRWXG | S_IROTH ) )
+//	{
+//		if ( errno != EEXIST)
+//		{
+//			printf("Failed to create directory for tests. Ended.");
+//			exit(-3);
+//		}
+//
+//	}
+//
+//	int i =0;
+//
+//	/* It is not recommended to enable all tests at once */
+//	while ( i++ < 1) {
+//
+//	test_1();
+//	test_2();
+//	test_3();
+//	test_4();
+//	test_5();
+//	test_6("test_6_7 is a very simple test", strlen("test_6_7 is a very simple test"), 1);
+//	test_7();
+////	test_8();
 //	test_9();
-	test_10();
-	test_11();
+//	test_10();
+//	test_11();
 //	test_12();
 //	test_13();
-	test_14();
-
-		printf("--------------------Done section number: %d-----------------------------\n", i);
-	}
-
-	return 0;
-}
+//	test_14();
+//
+//		printf("--------------------Done section number: %d-----------------------------\n", i);
+//	}
+//
+//	return 0;
+//}
 
 
