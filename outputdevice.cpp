@@ -83,9 +83,9 @@ void* writingFunc(void *)
 
 		if (allTasks->idsLeft())
 		{
-//			cout<<"wrote something\n " << strlen(firstTask->data->c_str()) <<endl;//debug
+
 			firstTask = allTasks->front();
-			diskFile.write((char * const)firstTask->data.get(),firstTask->length);
+			diskFile.write(&(firstTask->data)[0],firstTask->length);
 			printCounter++;
 			allTasks->done(firstTask->id);
 			allTasks->popTask();
@@ -94,8 +94,6 @@ void* writingFunc(void *)
 		}
 		else if (closing)
 		{
-			cout << howManyWritten() << "was written" << endl;
-			cout << allTasks->idsLeft() << "ids left; " << endl;
 			closeEverything();
 			return NULL;
 		}
@@ -151,8 +149,7 @@ int write2device(char *buffer, int length)
 		cerr << LIB_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
-	shared_ptr<char> data(new char[length]);
-	strncpy(data.get(),buffer,length);
+	vector<char> data(buffer,buffer+length);
 	newId = allTasks->addTask(data,length);
 	//cout << "added task"<<endl ;//debug
 	return newId;
