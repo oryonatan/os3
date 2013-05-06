@@ -56,6 +56,14 @@ enum location{
 	RUNNING,HISTORY,NOT_FOUND
 };
 
+struct TaskLockTriplet{
+	TaskLockTriplet(location loc,pthread_mutex_t * mut,pthread_cond_t * cond):
+		loc(loc),mut(mut),cond(cond){};
+	location loc;
+	pthread_mutex_t * mut;
+	pthread_cond_t * cond;
+};
+
 
 //The TaskList class includes all the tasks that are, were, or will be written by outputdevice.
 // It controls both the printed queue for the tasks to be written, a history of all the written
@@ -67,27 +75,22 @@ public:
 	~TaskList();
 	//Add a task to the tail of the task queue
 	int addTask(vector<char> ,int);
-	//Returns the head of the printing queue (without popping it)
-	shared_ptr<Task> front() const ;
 	//Pop the head of the printing queue
-	int popTask();
+	shared_ptr<Task> popTask();
 	//Searches the data structures for the printing task with the given tid,
 	//and returns whether the task is found in the printing queue or in history
 	location findTid(int tid);
-	//returns the mutex associated with the task with given tid
-	pthread_mutex_t* getSignalMutex(int tid) const;
-	//returns the conditional variable associate with the task with the given tid
-	pthread_cond_t* getSignal(int tid) const;
+	int waitToEnd(int tid);
 	//adds to history
 	void done(int tid);
-	int idsLeft() const {return ids.size();};
-	int histLeft() const {return history.size();};
+	int idsLeft() ;
+
 private:
 	//Get the lowest ID that is not in the printing queue
 	int getFreeID();
 	//delete all the tasks
 	void deleteAllTasks();
-
+	shared_ptr<Task> curRun;
 	//the printing queue
 	queue<shared_ptr<Task>> tasks;
 	//the structure that enables fetching the task by id

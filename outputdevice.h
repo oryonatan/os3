@@ -7,7 +7,6 @@
  */
 
 
-
 /*
  * DESCRIPTION: The function creates the file filename if it does not exist and open the file for writing. 
  *              This function should be called prior to any other functions as a necessary precondition for their success. 
