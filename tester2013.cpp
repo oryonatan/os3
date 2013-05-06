@@ -703,7 +703,7 @@ void test_13()
     	 if ( count != NUM_OF_THREADS )
     	 {
     		 FAILED_TEST("13", "The file doesn't contain the requested data");
-    		 printf("\tIt should contain %d time(/s) the number %d\n", NUM_OF_THREADS, j);
+    		 printf("\tIt should contain %d time(/s) the number %d got %d instead \n" , NUM_OF_THREADS, j,count);
     	 }
     	 free(newBuf);
     	 rewind(f);
@@ -759,7 +759,7 @@ int main()
 	int i =0;
 
 	/* It is not recommended to enable all tests at once */
-	while ( i++ < 10) {
+	while ( i++ < 1000) {
 
 	test_1();
 	test_2();

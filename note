@@ -1,0 +1,8 @@
+To run the testers:
+Extract tt.tar to a directory that contain your exercise files and run
+perl runTestsForStudents.pl
+
+The results will be in the created file res.txt. Two more files will be created:
+1. log.txt -  a log of the tests.
+
+2. stderr_re.txt - a file with the error messages created in the exercise and the status returned by the different tests.

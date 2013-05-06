@@ -127,23 +127,25 @@ void * mywriter (void * thread_id) {
 }
 
 int main() {
-	STATUS = initdevice (OUT1) ;
-	if (STATUS < 0) {
-		printf ("[ERROR] Failed to initialize device.\n") ;
-		return 1 ;
-	}
-	fprintf(stderr,"\n5 ");
-	NUMOPS = 10 ;
-	FLUSH_FLAG = true ;
 
-	pthread_t single_thread ;
-	pthread_create (&single_thread , NULL , &mywriter , 0) ;
-	void * ignore ;
-	pthread_join (single_thread , &ignore) ;
 
-	closedevice() ;
 
-	FLUSH_FLAG = false ;
+		STATUS = initdevice (OUT1) ;
+		if (STATUS < 0) {
+			printf ("[ERROR] Failed to initialize device.\n") ;
+			return 1 ;
+		}
+		NUMOPS = 1 ;
+		FLUSH_FLAG = true ;
+		ILLEGAL_FLUSH = true ;
+		pthread_t single_thread ;
+		pthread_create (&single_thread , NULL , &mywriter , 0) ;
+		void * ignore ;
+		pthread_join (single_thread , &ignore) ;
 
-	return 0 ;
+		FLUSH_FLAG = false ;
+		ILLEGAL_FLUSH = false ;
+		closedevice() ;
+		return 0 ;
+
 }

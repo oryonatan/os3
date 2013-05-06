@@ -84,12 +84,13 @@ void* writingFunc(void *)
 		if ((firstTask  = allTasks->popTask()) != NULL)
 		{
 
-			diskFile.write(&(firstTask->data)[0],firstTask->length);
+			diskFile.write((char*)&(firstTask->data)[0],firstTask->length);
 			if(diskFile.fail())
 			{
 				cerr << SYS_ERROR_MESSAGE << endl;
 				exit (-2);
 			}
+			diskFile.flush();
 			pthread_mutex_lock(&printCounterMut);
 			printCounter++;
 			allTasks->done(firstTask->id);
@@ -104,6 +105,7 @@ void* writingFunc(void *)
 				closeEverything();
 				closing = false;
 				pthread_mutex_unlock(&closeMutex);
+				pthread_mutex_destroy(&closeMutex);
 				return NULL;
 			}
 			pthread_mutex_unlock(&closeMutex);

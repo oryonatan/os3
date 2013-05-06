@@ -1,0 +1,7 @@
+##################### README #####################
+Found README file - OK
+
+##################### Make #####################
+[INFO] running g++ -Wall tester.cc -o testUser -loutputdevice -lpthread -L. -I cpp
+[INFO] running g++ -Wall tester.cc -o testUser -loutputdevice -lpthread -L. -I c
+[ERROR] Cannot link with library.

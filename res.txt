@@ -1,0 +1,3 @@
+smdyshel, oryonatan:
+no_appeal
+compilation (max) {Cannot link with library}
