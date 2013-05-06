@@ -188,8 +188,12 @@ int flush2device(int task_id)
 		return FAIL;
 	}
 	pthread_mutex_unlock(&initMutex);
-	return allTasks->waitToEnd(task_id);
-
+	int status = allTasks->waitToEnd(task_id);
+	if (status  == TID_NOT_FOUND_ERROR)
+	{
+		cerr << LIB_ERROR_MESSAGE << endl;
+	}
+	return status;
 }
 
 int wasItWritten(int task_id)
