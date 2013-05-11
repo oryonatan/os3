@@ -17,7 +17,7 @@
 #include "pthread.h"
 #include <malloc.h>
 #include <memory>
-
+#include "safelocks.h"
 #include <iostream>
 
 using namespace std;
