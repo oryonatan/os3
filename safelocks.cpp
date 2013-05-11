@@ -1,8 +1,9 @@
 #include "safelocks.h"
-
+#include "errno.h"
 void safeMutexInit(pthread_mutex_t* __mutex,
 		const pthread_mutexattr_t* __mutexattr)
 {
+	pthread_mutex_init(__mutex,__mutexattr);
 }
 
 void safeCondInit(pthread_cond_t* __cond, const pthread_condattr_t* __condattr)
@@ -15,7 +16,8 @@ void safeCondInit(pthread_cond_t* __cond, const pthread_condattr_t* __condattr)
 
 void safeLock(pthread_mutex_t* __mutex)
 {
-	if (pthread_mutex_lock(__mutex))
+	int ret = pthread_mutex_lock(__mutex);
+	if (ret )
 	{
 		throw PthreadError();
 	}
@@ -47,10 +49,18 @@ void safeCondDestroy(pthread_cond_t* __cond)
 
 void safeMutexDestroy(pthread_mutex_t* __mutex)
 {
-	if (pthread_mutex_destroy(__mutex))
+	int ret = pthread_mutex_destroy(__mutex);
+
+	if (ret==EINVAL)
+	{
+		*__mutex = PTHREAD_MUTEX_INITIALIZER;
+		return;
+	}
+	else if(ret)
 	{
 		throw PthreadError();
 	}
+	*__mutex = PTHREAD_MUTEX_INITIALIZER;
 }
 
 void safeWait(pthread_cond_t *__restrict __cond,

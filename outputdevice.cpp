@@ -53,6 +53,7 @@ bool initialized = false;
 unique_ptr<TaskList> allTasks;
 ofstream diskFile;
 long printCounter = 0;
+bool finishedClosing = false;
 
 //Helper function that destroys all the resources and frees the memory
 void closeEverything()
@@ -68,7 +69,6 @@ void closeEverything()
 		initialized = false;
 		safeUnlock(&initMutex);
 		safeMutexDestroy(&closeMutex);
-		safeMutexDestroy(&initMutex);
 		safeMutexDestroy(&printCounterMut);
 
 	} catch (PthreadError &e)
@@ -84,6 +84,7 @@ void* writingFunc(void *)
 	{
 		shared_ptr<Task> firstTask;
 		safeLock(&initMutex);
+		safeMutexInit(&closeMutex,NULL);
 		while (initialized)
 		{
 			safeUnlock(&initMutex);
@@ -112,6 +113,9 @@ void* writingFunc(void *)
 					closing = false;
 					safeUnlock(&closeMutex);
 					closeEverything();
+					safeLock(&initMutex);
+					finishedClosing =true;
+					safeUnlock(&initMutex);
 					return NULL;
 				}
 				safeUnlock(&closeMutex);
@@ -133,6 +137,7 @@ int initdevice(char *filename)
 	try
 	{
 		safeLock(&initMutex);
+		finishedClosing = false;
 		allTasks = unique_ptr<TaskList>(new TaskList());
 		printCounter = 0;
 		if (initialized || filename == NULL)
@@ -292,23 +297,24 @@ int wait4close()
 {
 	try
 	{
-
 		void* ret = NULL;
-		safeLock(&closeMutex);
 		safeLock(&initMutex);
+		if (finishedClosing)
+		{
+			safeUnlock(&initMutex);
+			return WAITFORCLOSE_SUCCESSFUL;
+		}
+		safeLock(&closeMutex);
 		if (!(closing && initialized))
 		{
-			safeUnlock(&closeMutex);
 			safeUnlock(&initMutex);
+			safeUnlock(&closeMutex);
 			cerr << LIB_ERROR_MESSAGE << endl;
 			return WAIT_FOR_CLOSE_TO_EARLY;
 		}
+		safeUnlock(&closeMutex);
 		safeUnlock(&initMutex);
-		safeUnlock(&closeMutex);
 		safeJoin(daemonThread, &ret);
-		safeLock(&closeMutex);
-		closing = false;
-		safeUnlock(&closeMutex);
 		return WAITFORCLOSE_SUCCESSFUL;
 	} catch (PthreadError &e)
 	{
