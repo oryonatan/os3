@@ -5,8 +5,6 @@
  *      Author: maria
  */
 
-
-
 #include <iostream>
 #include <cstdio>
 #include "pthread.h"
@@ -18,6 +16,7 @@
 #include "errno.h"
 #include <fstream>
 #include "limits.h"
+#include "safelocks.h"
 
 #define LIB_ERROR_MESSAGE "Output device library error"
 #define SYS_ERROR_MESSAGE "system error"
@@ -38,15 +37,11 @@
 
 using namespace std;
 
-
 pthread_mutex_t printCounterMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t closeMutex = PTHREAD_MUTEX_INITIALIZER;
 
-
-
 //The mutex that makes sure only one initialization process goes at the same time
 pthread_mutex_t initMutex;
-
 
 //The daemon thread that does all the printing
 pthread_t daemonThread;
@@ -59,143 +54,180 @@ unique_ptr<TaskList> allTasks;
 ofstream diskFile;
 long printCounter = 0;
 
-
 //Helper function that destroys all the resources and frees the memory
 void closeEverything()
 {
-	pthread_mutex_lock(&initMutex);
-	if (diskFile != NULL)
+	try
 	{
-		diskFile.close();
-	}
+		safeLock(&initMutex);
+		if (diskFile != NULL)
+		{
+			diskFile.close();
+		}
 
-	initialized = false;
-	pthread_mutex_unlock(&initMutex);
+		initialized = false;
+		safeUnlock(&initMutex);
+		safeMutexDestroy(&closeMutex);
+		safeMutexDestroy(&initMutex);
+		safeMutexDestroy(&printCounterMut);
+
+	} catch (PthreadError &e)
+	{
+		cerr << SYS_ERROR_MESSAGE << endl;
+	}
 }
 
 //The entry point to the writing daemon thread
 void* writingFunc(void *)
 {
-	shared_ptr<Task> firstTask;
-	pthread_mutex_lock(&initMutex);
-	while (initialized)
+	try
 	{
-		pthread_mutex_unlock(&initMutex);
-		if ((firstTask  = allTasks->popTask()) != NULL)
+		shared_ptr<Task> firstTask;
+		safeLock(&initMutex);
+		while (initialized)
 		{
-
-			diskFile.write((char*)&(firstTask->data)[0],firstTask->length);
-			if(diskFile.fail())
+			safeUnlock(&initMutex);
+			if ((firstTask = allTasks->popTask()) != NULL)
 			{
-				cerr << SYS_ERROR_MESSAGE << endl;
-				exit (-2);
-			}
-			diskFile.flush();
-			pthread_mutex_lock(&printCounterMut);
-			printCounter++;
-			allTasks->done(firstTask->id);
-			pthread_cond_broadcast(&(firstTask->sig));
-			pthread_mutex_unlock(&printCounterMut);
-		}
-		else
-		{
-			pthread_mutex_lock(&closeMutex);
-			if (closing)
-			{
-				closeEverything();
-				closing = false;
-				pthread_mutex_unlock(&closeMutex);
-				pthread_mutex_destroy(&closeMutex);
-				return NULL;
-			}
-			pthread_mutex_unlock(&closeMutex);
-		}
 
-		pthread_mutex_lock(&initMutex);
+				diskFile.write((char*) &(firstTask->data)[0],
+						firstTask->length);
+				if (diskFile.fail())
+				{
+					cerr << SYS_ERROR_MESSAGE << endl;
+					exit(-2);
+				}
+				diskFile.flush();
+				safeLock(&printCounterMut);
+				printCounter++;
+				allTasks->done(firstTask->id);
+				safeBroadCast(&(firstTask->sig));
+				safeUnlock(&printCounterMut);
+			}
+			else
+			{
+				safeLock(&closeMutex);
+				if (closing)
+				{
+					closing = false;
+					safeUnlock(&closeMutex);
+					closeEverything();
+					return NULL;
+				}
+				safeUnlock(&closeMutex);
+			}
+
+			safeLock(&initMutex);
+		}
+		return NULL;
+	} catch (PthreadError &e)
+	{
+		closeEverything();
+		cerr << SYS_ERROR_MESSAGE << endl;
+		exit(-2);
 	}
-	return NULL;
 }
 
 int initdevice(char *filename)
 {
-	if (pthread_mutex_lock(&initMutex))
+	try
 	{
-		cerr << SYS_ERROR_MESSAGE << endl;
-		return FAIL;
-	}
-	allTasks= unique_ptr<TaskList>(new TaskList());
-	printCounter = 0;
-	if (initialized || filename == NULL)
-	{
-		pthread_mutex_unlock(&initMutex);
-		cerr << LIB_ERROR_MESSAGE << endl;
-		return FAIL;
-	}
+		safeLock(&initMutex);
+		allTasks = unique_ptr<TaskList>(new TaskList());
+		printCounter = 0;
+		if (initialized || filename == NULL)
+		{
+			safeUnlock(&initMutex);
+			return FAIL;
+		}
 
-	diskFile.open(filename,ofstream::app|ofstream::binary);
-	if (!diskFile.is_open())
-	{
-		pthread_mutex_unlock(&initMutex);
-		cerr << SYS_ERROR_MESSAGE << endl;
-		return FILESYSTEM_ERROR;
-	}
+		diskFile.open(filename, ofstream::app | ofstream::binary);
+		if (!diskFile.is_open())
+		{
+			safeUnlock(&initMutex);
+			cerr << SYS_ERROR_MESSAGE << endl;
+			return FILESYSTEM_ERROR;
+		}
 
-	if (pthread_create(&daemonThread, NULL, writingFunc, NULL))
+		if (pthread_create(&daemonThread, NULL, writingFunc, NULL))
+		{
+			safeUnlock(&initMutex);
+			cerr << SYS_ERROR_MESSAGE << endl;
+			return FAIL;
+
+		}
+
+		initialized = true;
+		safeUnlock(&initMutex);
+		return SUCCESS;
+	} catch (PthreadError &e)
 	{
+		UNLOCK_IGNORE(initMutex);
 		cerr << SYS_ERROR_MESSAGE << endl;
 		return FAIL;
-
 	}
-	initialized = true;
-	if (pthread_mutex_unlock(&initMutex))
-	{
-		cerr << SYS_ERROR_MESSAGE << endl;
-		return FAIL;
-	}
-	return SUCCESS;
 }
 
 int write2device(char *buffer, int length)
 {
 	int newId;
-	//initdevice must be called before calling any function
-	pthread_mutex_lock(&closeMutex);
-	pthread_mutex_lock(&initMutex);
-	if (!initialized || closing)
+	try
 	{
-		pthread_mutex_unlock(&closeMutex);
-		pthread_mutex_unlock(&initMutex);
-		cerr << LIB_ERROR_MESSAGE << endl;
+		safeLock(&closeMutex);
+
+		safeLock(&initMutex);
+		if (!initialized || closing)
+		{
+			safeUnlock(&closeMutex);
+			safeUnlock(&initMutex);
+			cerr << LIB_ERROR_MESSAGE << endl;
+			return FAIL;
+		}
+		safeUnlock(&closeMutex);
+		safeUnlock(&initMutex);
+		vector<char> data(buffer, buffer + length);
+		newId = allTasks->addTask(data, length);
+		return newId;
+	} catch (PthreadError &e)
+	{
+		UNLOCK_IGNORE(closeMutex);
+		UNLOCK_IGNORE(closeMutex);
+		cerr << SYS_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
-	pthread_mutex_unlock(&closeMutex);
-	pthread_mutex_unlock(&initMutex);
-	vector<char> data(buffer,buffer+length);
-	newId = allTasks->addTask(data,length);
-	return newId;
+
 }
 
 int flush2device(int task_id)
 {
-	if (task_id <0 )
+	try
 	{
-		cerr << LIB_ERROR_MESSAGE << endl;
-		return TID_NOT_FOUND_ERROR;
-	}
-	pthread_mutex_lock(&initMutex);
-	if (!initialized)
+		if (task_id < 0)
+		{
+			cerr << LIB_ERROR_MESSAGE << endl;
+			return TID_NOT_FOUND_ERROR;
+		}
+		safeLock(&initMutex);
+		if (!initialized)
+		{
+			cerr << LIB_ERROR_MESSAGE << endl;
+			safeUnlock(&initMutex);
+			return FAIL;
+		}
+		safeUnlock(&initMutex);
+		int status = allTasks->waitToEnd(task_id);
+		if (status == TID_NOT_FOUND_ERROR)
+		{
+			cerr << LIB_ERROR_MESSAGE << endl;
+		}
+		return status;
+	} catch (PthreadError &e)
 	{
-		pthread_mutex_unlock(&initMutex);
-		cerr << LIB_ERROR_MESSAGE << endl;
+		UNLOCK_IGNORE(initMutex);
+		cerr << SYS_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
-	pthread_mutex_unlock(&initMutex);
-	int status = allTasks->waitToEnd(task_id);
-	if (status  == TID_NOT_FOUND_ERROR)
-	{
-		cerr << LIB_ERROR_MESSAGE << endl;
-	}
-	return status;
+
 }
 
 int wasItWritten(int task_id)
@@ -215,53 +247,76 @@ int wasItWritten(int task_id)
 
 int howManyWritten()
 {
-	pthread_mutex_lock(&initMutex);
-	if (!initialized)
+	try
 	{
-		pthread_mutex_unlock(&initMutex);
+		safeLock(&initMutex);
+		if (!initialized)
+		{
+			safeUnlock(&initMutex);
+			return FAIL;
+		}
+		safeUnlock(&initMutex);
+		safeLock(&printCounterMut);
+		int pc = printCounter;
+		if (printCounter > INT_MAX)
+		{
+			safeUnlock(&printCounterMut);
+			return INT_MIN;
+		}
+		safeUnlock(&printCounterMut);
+		return pc;
+	} catch (PthreadError &e)
+	{
+		UNLOCK_IGNORE(initMutex);
+		UNLOCK_IGNORE(printCounterMut);
+		cerr << SYS_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
-	pthread_mutex_unlock(&initMutex);
-	pthread_mutex_lock(&printCounterMut);
-	int pc = printCounter;
-	if (printCounter > INT_MAX)
-	{
-		pthread_mutex_unlock(&printCounterMut);
-		return INT_MIN;
-	}
-	pthread_mutex_unlock(&printCounterMut);
-	return pc;
 }
 
 void closedevice()
 {
-	pthread_mutex_lock(&closeMutex);
-	closing = true;
-	pthread_mutex_unlock(&closeMutex);
+	try
+	{
+		safeLock(&closeMutex);
+		closing = true;
+		safeUnlock(&closeMutex);
+	} catch (PthreadError &e)
+	{
+		UNLOCK_IGNORE(closeMutex);
+		cerr << SYS_ERROR_MESSAGE << endl;
+	}
 }
 
 int wait4close()
 {
-	void* ret = NULL;
-	pthread_mutex_lock(&closeMutex);
-	pthread_mutex_lock(&initMutex);
-	if (!(closing && initialized))
+	try
 	{
-		pthread_mutex_unlock(&closeMutex);
-		pthread_mutex_unlock(&initMutex);
-		cerr << LIB_ERROR_MESSAGE << endl;
-		return WAIT_FOR_CLOSE_TO_EARLY;
-	}
-	pthread_mutex_unlock(&initMutex);
-	pthread_mutex_unlock(&closeMutex);
-	if(pthread_join(daemonThread,&ret))
+
+		void* ret = NULL;
+		safeLock(&closeMutex);
+		safeLock(&initMutex);
+		if (!(closing && initialized))
+		{
+			safeUnlock(&closeMutex);
+			safeUnlock(&initMutex);
+			cerr << LIB_ERROR_MESSAGE << endl;
+			return WAIT_FOR_CLOSE_TO_EARLY;
+		}
+		safeUnlock(&initMutex);
+		safeUnlock(&closeMutex);
+		safeJoin(daemonThread, &ret);
+		safeLock(&closeMutex);
+		closing = false;
+		safeUnlock(&closeMutex);
+		return WAITFORCLOSE_SUCCESSFUL;
+	} catch (PthreadError &e)
 	{
+		UNLOCK_IGNORE(closeMutex);
+		UNLOCK_IGNORE(initMutex);
 		cerr << SYS_ERROR_MESSAGE << endl;
 		return FAIL;
 	}
-	pthread_mutex_lock(&closeMutex);
-	closing = false;
-	pthread_mutex_unlock(&closeMutex);
-	return WAITFORCLOSE_SUCCESSFUL;
+
 }
 

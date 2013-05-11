@@ -9,84 +9,111 @@
 #include <limits.h>
 #include <memory>
 #include "unistd.h"
+#include "safelocks.h"
 
 #define TID_NOT_FOUND_ERROR -2
 #define FLUSH_SUCCESFUL 1
 
-int TaskList::addTask(vector<char> data,int length)
+int TaskList::addTask(vector<char> data, int length)
 {
-	pthread_mutex_lock(&listMutex);
-	int tid = this->getFreeID();
-	if (tid == FAIL)
+	try
 	{
-		pthread_mutex_unlock(&listMutex);
+		safeLock(&listMutex);
+		int tid = this->getFreeID();
+		if (tid == FAIL)
+		{
+			safeUnlock(&listMutex);
+			return FAIL;
+		}
+		shared_ptr<Task> newTask(new Task(tid, data, length));
+		tasks.push(newTask);
+		ids[tid] = newTask;
+		safeUnlock(&listMutex);
+		return tid;
+	} catch (PthreadError &e)
+	{
+		UNLOCK_IGNORE(listMutex);
 		return FAIL;
 	}
-	shared_ptr<Task> newTask(new Task(tid, data,length));
-	tasks.push(newTask);
-	ids[tid] = newTask;
-	pthread_mutex_unlock(&listMutex);
-	return tid;
 }
 
 TaskList::TaskList() :
 		tasks(), ids(), history()
 {
-	pthread_mutex_init(&freeIdMutex, NULL);
-	pthread_mutex_init(&listMutex, NULL);
+	safeMutexInit(&freeIdMutex, NULL);
+	safeMutexInit(&listMutex, NULL);
 }
 location TaskList::findTid(int tid)
 {
-	pthread_mutex_lock(&listMutex);
+	try
+	{
+		safeLock(&listMutex);
 
-	if (ids.find(tid) != ids.end())
+		if (ids.find(tid) != ids.end())
+		{
+			safeUnlock(&listMutex);
+			return RUNNING;
+		}
+		else if (history.find(tid) != history.end())
+		{
+			safeUnlock(&listMutex);
+			return HISTORY;
+		}
+		safeUnlock(&listMutex);
+		return NOT_FOUND;
+	} catch (PthreadError &e)
 	{
-		pthread_mutex_unlock(&listMutex);
-		return RUNNING;
+		UNLOCK_IGNORE(listMutex);
+		return NOT_FOUND;
 	}
-	else if (history.find(tid) != history.end())
-	{
-		pthread_mutex_unlock(&listMutex);
-		return HISTORY;
-	}
-	pthread_mutex_unlock(&listMutex);
-	return NOT_FOUND;
 }
-
 
 void TaskList::done(int tid)
 {
-	pthread_mutex_lock(&listMutex);
-	history.insert(tid);
-	curRun=NULL;
-	pthread_mutex_unlock(&listMutex);
+	try
+	{
+		safeLock(&listMutex);
+		history.insert(tid);
+		curRun = NULL;
+		safeUnlock(&listMutex);
+	} catch (PthreadError &e)
+	{
+		UNLOCK_IGNORE(listMutex);
+	}
 }
 
 int TaskList::waitToEnd(int tid)
 {
-	pthread_mutex_lock(&listMutex);
-	shared_ptr<Task> toWait = NULL;
-	if (curRun!=NULL&& curRun->id == tid)
+	try
 	{
-		toWait = curRun;
-	}
-	if (ids.find(tid) != ids.end())
+		safeLock(&listMutex);
+		shared_ptr<Task> toWait = NULL;
+		if (curRun != NULL && curRun->id == tid)
+		{
+			toWait = curRun;
+		}
+		if (ids.find(tid) != ids.end())
+		{
+			toWait = ids.find(tid)->second;
+		}
+		if (toWait != NULL)
+		{
+			safeWait(&(toWait->sig), &listMutex);
+			safeUnlock(&listMutex);
+			return FLUSH_SUCCESFUL;
+		}
+		else if (history.find(tid) != history.end())
+		{
+			safeUnlock(&listMutex);
+			return FLUSH_SUCCESFUL;
+		}
+		safeUnlock(&listMutex);
+		return TID_NOT_FOUND_ERROR;
+	} catch (PthreadError &e)
 	{
-		toWait=ids.find(tid)->second;
+		UNLOCK_IGNORE(listMutex);
+		return FAIL;
 	}
-	if (toWait != NULL)
-	{
-		pthread_cond_wait(&(toWait->sig),&listMutex);
-		pthread_mutex_unlock(&listMutex);
-		return FLUSH_SUCCESFUL;
-	}
-	else if (history.find(tid) != history.end())
-	{
-		pthread_mutex_unlock(&listMutex);
-		return FLUSH_SUCCESFUL;
-	}
-	pthread_mutex_unlock(&listMutex);
-	return TID_NOT_FOUND_ERROR;
 }
 
 void TaskList::deleteAllTasks()
@@ -102,53 +129,74 @@ void TaskList::deleteAllTasks()
 //TODO - why do we need it like this?
 TaskList::~TaskList()
 {
-	pthread_mutex_lock(&listMutex);
+	safeLock(&listMutex);
 	deleteAllTasks();
-	pthread_mutex_destroy(&freeIdMutex);
-	pthread_mutex_unlock(&listMutex);
-	pthread_mutex_destroy(&listMutex);
+	safeMutexDestroy(&freeIdMutex);
+	safeUnlock(&listMutex);
+	safeMutexDestroy(&listMutex);
 }
-
 
 int TaskList::idsLeft()
 {
-	pthread_mutex_lock(&listMutex);
-	int size=ids.size();
-	pthread_mutex_unlock(&listMutex);
-	return size;
+	try
+	{
+		safeLock(&listMutex);
+		int size = ids.size();
+		safeUnlock(&listMutex);
+		return size;
+	} catch (PthreadError &e)
+	{
+
+		UNLOCK_IGNORE(listMutex);
+
+		return FAIL;
+	}
 
 }
 
 int TaskList::getFreeID()
 {
-	pthread_mutex_lock(&freeIdMutex);
-	for (int i = 0; i <= INT_MAX; ++i)
+	try
 	{
-		if (ids.find(i) == ids.end())
+		safeLock(&freeIdMutex);
+		for (int i = 0; i <= INT_MAX; ++i)
 		{
-			pthread_mutex_unlock(&freeIdMutex);
-			return i;
+			if (ids.find(i) == ids.end())
+			{
+				safeUnlock(&freeIdMutex);
+				return i;
+			}
 		}
+		safeUnlock(&freeIdMutex);
+		return FAIL;
+	} catch (PthreadError &e)
+	{
+		UNLOCK_IGNORE(freeIdMutex);
+		return FAIL;
 	}
-	pthread_mutex_unlock(&freeIdMutex);
-	return FAIL;
 }
-
 
 shared_ptr<Task> TaskList::popTask()
 {
-	pthread_mutex_lock(&listMutex);
-	if (tasks.empty())
+	try
 	{
-		pthread_mutex_unlock(&listMutex);
+		safeLock(&listMutex);
+		if (tasks.empty())
+		{
+			safeUnlock(&listMutex);
+			return NULL;
+		}
+
+		shared_ptr<Task> front = tasks.front();
+		curRun = front;
+		ids.erase(front->id);
+		tasks.pop();
+		safeUnlock(&listMutex);
+		return front;
+	} catch (PthreadError &e)
+	{
+		UNLOCK_IGNORE(listMutex);
 		return NULL;
 	}
-
-	shared_ptr<Task>front = tasks.front();
-	curRun=front;
-	ids.erase(front->id);
-	tasks.pop();
-	pthread_mutex_unlock(&listMutex);
-	return front;
 }
 
