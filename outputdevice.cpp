@@ -36,12 +36,10 @@
 #define APPEND "a"
 
 using namespace std;
-
+//initmutex will never be erased , the rest are destroyed on close
 pthread_mutex_t printCounterMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t closeMutex = PTHREAD_MUTEX_INITIALIZER;
-
-//The mutex that makes sure only one initialization process goes at the same time
-pthread_mutex_t initMutex;
+pthread_mutex_t initMutex =PTHREAD_MUTEX_INITIALIZER;
 
 //The daemon thread that does all the printing
 pthread_t daemonThread;
@@ -65,7 +63,6 @@ void closeEverything()
 		{
 			diskFile.close();
 		}
-
 		initialized = false;
 		safeUnlock(&initMutex);
 		safeMutexDestroy(&closeMutex);
@@ -84,13 +81,12 @@ void* writingFunc(void *)
 	{
 		shared_ptr<Task> firstTask;
 		safeLock(&initMutex);
-		safeMutexInit(&closeMutex,NULL);
 		while (initialized)
 		{
 			safeUnlock(&initMutex);
+			//If list is not empty - print
 			if ((firstTask = allTasks->popTask()) != NULL)
 			{
-
 				diskFile.write((char*) &(firstTask->data)[0],
 						firstTask->length);
 				if (diskFile.fail())
@@ -105,6 +101,7 @@ void* writingFunc(void *)
 				safeBroadCast(&(firstTask->sig));
 				safeUnlock(&printCounterMut);
 			}
+			//if list is empty - should I close?
 			else
 			{
 				safeLock(&closeMutex);
@@ -120,7 +117,6 @@ void* writingFunc(void *)
 				}
 				safeUnlock(&closeMutex);
 			}
-
 			safeLock(&initMutex);
 		}
 		return NULL;
@@ -145,7 +141,7 @@ int initdevice(char *filename)
 			safeUnlock(&initMutex);
 			return FAIL;
 		}
-
+		//open file
 		diskFile.open(filename, ofstream::app | ofstream::binary);
 		if (!diskFile.is_open())
 		{
@@ -153,7 +149,7 @@ int initdevice(char *filename)
 			cerr << SYS_ERROR_MESSAGE << endl;
 			return FILESYSTEM_ERROR;
 		}
-
+		//create writer thread
 		if (pthread_create(&daemonThread, NULL, writingFunc, NULL))
 		{
 			safeUnlock(&initMutex);
@@ -161,7 +157,6 @@ int initdevice(char *filename)
 			return FAIL;
 
 		}
-
 		initialized = true;
 		safeUnlock(&initMutex);
 		return SUCCESS;
@@ -179,8 +174,8 @@ int write2device(char *buffer, int length)
 	try
 	{
 		safeLock(&closeMutex);
-
 		safeLock(&initMutex);
+		//can't write if not initialized or if closing
 		if (!initialized || closing)
 		{
 			safeUnlock(&closeMutex);
@@ -190,7 +185,9 @@ int write2device(char *buffer, int length)
 		}
 		safeUnlock(&closeMutex);
 		safeUnlock(&initMutex);
+		//copy data to vector - so it can be freed
 		vector<char> data(buffer, buffer + length);
+		//add new task
 		newId = allTasks->addTask(data, length);
 		return newId;
 	} catch (PthreadError &e)
@@ -207,12 +204,14 @@ int flush2device(int task_id)
 {
 	try
 	{
+		//taskid <0 is illegal
 		if (task_id < 0)
 		{
 			cerr << LIB_ERROR_MESSAGE << endl;
 			return TID_NOT_FOUND_ERROR;
 		}
 		safeLock(&initMutex);
+		//must be initialized
 		if (!initialized)
 		{
 			cerr << LIB_ERROR_MESSAGE << endl;
@@ -247,7 +246,7 @@ int wasItWritten(int task_id)
 		cerr << LIB_ERROR_MESSAGE << endl;
 		return TID_NOT_FOUND_ERROR;
 	}
-	return FAIL; // unreachable , but eclipse is bugging me
+	return FAIL; // unreachable , but eclipse insist return after switch case
 }
 
 int howManyWritten()
@@ -262,8 +261,9 @@ int howManyWritten()
 		}
 		safeUnlock(&initMutex);
 		safeLock(&printCounterMut);
+		//create copy
 		int pc = printCounter;
-		if (printCounter > INT_MAX)
+		if (pc > INT_MAX)
 		{
 			safeUnlock(&printCounterMut);
 			return INT_MIN;
@@ -281,6 +281,8 @@ int howManyWritten()
 
 void closedevice()
 {
+	// The closedevice function actually does nothing , and just set the flag for the thread to
+	// close on finish and to make it impossible for others to add tasks
 	try
 	{
 		safeLock(&closeMutex);
@@ -297,9 +299,8 @@ int wait4close()
 {
 	try
 	{
-		void* ret = NULL;
 		safeLock(&initMutex);
-		if (finishedClosing)
+		if (finishedClosing)//allready finished
 		{
 			safeUnlock(&initMutex);
 			return WAITFORCLOSE_SUCCESSFUL;
@@ -314,6 +315,7 @@ int wait4close()
 		}
 		safeUnlock(&closeMutex);
 		safeUnlock(&initMutex);
+		void* ret = NULL;//we dont care for that
 		safeJoin(daemonThread, &ret);
 		return WAITFORCLOSE_SUCCESSFUL;
 	} catch (PthreadError &e)

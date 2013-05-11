@@ -1,3 +1,18 @@
-smdyshel, oryonatan:
+bad_readme(max) {cannot open README file}
 no_appeal
-compilation (max) {Cannot link with library}
+init_and_close (max)
+init_twice_same_file (max)
+one_thread_writes (max)
+erase_contents (max)
+write_and_flush (max)
+close_and_flush (max)
+write_no_init (max)
+illegal_flush (max)
+thread_write (max)
+big_buffers (max)
+close_and_write (max)
+run_many_threads_flush (max)
+run_many_threads (max)
+illegal_was_it_written (max)
+was_it_written (max)
+blocking_test (max)

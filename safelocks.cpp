@@ -50,8 +50,7 @@ void safeCondDestroy(pthread_cond_t* __cond)
 void safeMutexDestroy(pthread_mutex_t* __mutex)
 {
 	int ret = pthread_mutex_destroy(__mutex);
-
-	if (ret==EINVAL)
+	if (ret==EINVAL) // if it was destroyed before in an ugly way for some reason
 	{
 		*__mutex = PTHREAD_MUTEX_INITIALIZER;
 		return;
@@ -60,6 +59,7 @@ void safeMutexDestroy(pthread_mutex_t* __mutex)
 	{
 		throw PthreadError();
 	}
+	//set to static initializer for future use.
 	*__mutex = PTHREAD_MUTEX_INITIALIZER;
 }
 

@@ -1,4 +1,16 @@
-tester.cc: In function ‘int test8()’:
-tester.cc:486:12: error: invalid operands of types ‘int(FILE*, const char*, ...) {aka int(_IO_FILE*, const char*, ...)}’ and ‘const char [14]’ to binary ‘operator<<’
-tester.cc: In function ‘int test8()’:
-tester.cc:486:12: error: invalid operands of types ‘int(FILE*, const char*, ...) {aka int(_IO_FILE*, const char*, ...)}’ and ‘const char [14]’ to binary ‘operator<<’
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found
+sh: 1: testUser: not found

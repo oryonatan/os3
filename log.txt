@@ -1,7 +1,36 @@
 ##################### README #####################
-Found README file - OK
+[ERROR] Cannot open README
 
 ##################### Make #####################
 [INFO] running g++ -Wall tester.cc -o testUser -loutputdevice -lpthread -L. -I cpp
-[INFO] running g++ -Wall tester.cc -o testUser -loutputdevice -lpthread -L. -I c
-[ERROR] Cannot link with library.
+ test 1  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.00249814987182617
+ test 2  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.0093841552734375
+ test 3  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.00457501411437988
+
+
+ This is actually test 3.5:
+ test 3  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.00240302085876465
+ test 5  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.00211286544799805
+ test 6  - FAILED  took	 0.00241184234619141
+ test 7  - FAILED  took	 0.00330591201782227
+ test 8  - FAILED  took	 0.00222015380859375
+ test 9  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.00263190269470215
+ test 10  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.00212597846984863
+ test 11  - FAILED  took	 0.00282812118530273
+ test 12  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.00194406509399414
+ test 13  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.00355696678161621
+ test 14  - FAILED  took	 0.00197911262512207
+ test 15  Wrong return status: expected = 0 , returned = 32512
+ - FAILED  took	 0.0034949779510498
+ test 16  Cannot find file out2.txt.
+ - FAILED  took	 0.00211286544799805
+rm: cannot remove `*.lib': No such file or directory

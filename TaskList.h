@@ -24,7 +24,8 @@ using namespace std;
 
 //The Task struct implements a task to be printed to the disk
 
-struct Task {
+struct Task
+{
 	//The ID of the struct given by the TaskList (the lowes free ID)
 	int id;
 	//The buffer to be printed
@@ -37,14 +38,16 @@ struct Task {
 	pthread_mutex_t mut;
 
 	//Constructor
-	Task(int id, vector<char> instring ,int len) :
-			id(id), data(instring),length(len) {
-		pthread_cond_init(&sig ,NULL);
-		pthread_mutex_init(&mut,NULL);
+	Task(int id, vector<char> instring, int len) :
+			id(id), data(instring), length(len)
+	{
+		safeCondInit(&sig, NULL);
+		safeMutexInit(&mut, NULL);
 	}
 	;
 	//Destructor
-	~Task() {
+	~Task()
+	{
 		pthread_cond_destroy(&sig);
 		pthread_mutex_destroy(&mut);
 	}
@@ -52,38 +55,32 @@ struct Task {
 };
 
 //Describes a position of a written task whether it was written, still waits to be written, or not found
-enum location{
-	RUNNING,HISTORY,NOT_FOUND
+enum location
+{
+	RUNNING, HISTORY, NOT_FOUND
 };
-
-struct TaskLockTriplet{
-	TaskLockTriplet(location loc,pthread_mutex_t * mut,pthread_cond_t * cond):
-		loc(loc),mut(mut),cond(cond){};
-	location loc;
-	pthread_mutex_t * mut;
-	pthread_cond_t * cond;
-};
-
 
 //The TaskList class includes all the tasks that are, were, or will be written by outputdevice.
 // It controls both the printed queue for the tasks to be written, a history of all the written
 //tasks, and enables to access to the tasks by their ID.
 //The TaskList is thread safe and protects its inner data structures by mutexes.
-class TaskList {
+class TaskList
+{
 public:
 	TaskList();
 	~TaskList();
 	//Add a task to the tail of the task queue
-	int addTask(vector<char> ,int);
+	int addTask(vector<char>, int);
 	//Pop the head of the printing queue
 	shared_ptr<Task> popTask();
 	//Searches the data structures for the printing task with the given tid,
 	//and returns whether the task is found in the printing queue or in history
 	location findTid(int tid);
+	//waits for task to finish
 	int waitToEnd(int tid);
 	//adds to history
 	void done(int tid);
-	int idsLeft() ;
+	int idsLeft();
 
 private:
 	//Get the lowest ID that is not in the printing queue
@@ -94,7 +91,7 @@ private:
 	//the printing queue
 	queue<shared_ptr<Task>> tasks;
 	//the structure that enables fetching the task by id
-	map <int,shared_ptr<Task>> ids;
+	map<int, shared_ptr<Task>> ids;
 	//history of all the tasks that were printed to the device.
 	set<int> history;
 	//the mutex that protects the data structures
@@ -103,6 +100,4 @@ private:
 };
 
 #endif /* TaskList_H_ */
-
-
 

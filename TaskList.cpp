@@ -25,6 +25,7 @@ int TaskList::addTask(vector<char> data, int length)
 			safeUnlock(&listMutex);
 			return FAIL;
 		}
+		//create new task and push
 		shared_ptr<Task> newTask(new Task(tid, data, length));
 		tasks.push(newTask);
 		ids[tid] = newTask;
@@ -40,6 +41,7 @@ int TaskList::addTask(vector<char> data, int length)
 TaskList::TaskList() :
 		tasks(), ids(), history()
 {
+	//ctor can fail with exception
 	safeMutexInit(&freeIdMutex, NULL);
 	safeMutexInit(&listMutex, NULL);
 }
@@ -96,17 +98,19 @@ int TaskList::waitToEnd(int tid)
 		{
 			toWait = ids.find(tid)->second;
 		}
-		if (toWait != NULL)
+		if (toWait != NULL)//if there is such task
 		{
 			safeWait(&(toWait->sig), &listMutex);
 			safeUnlock(&listMutex);
 			return FLUSH_SUCCESFUL;
 		}
-		else if (history.find(tid) != history.end())
+		else if (history.find(tid) != history.end())//maybe in history?
 		{
 			safeUnlock(&listMutex);
 			return FLUSH_SUCCESFUL;
 		}
+		//if you got here , it is not running , not waiting and not in history
+		//so it does'nt exists
 		safeUnlock(&listMutex);
 		return TID_NOT_FOUND_ERROR;
 	} catch (PthreadError &e)
@@ -118,7 +122,7 @@ int TaskList::waitToEnd(int tid)
 
 void TaskList::deleteAllTasks()
 {
-
+	//used by the dtor
 	history.clear();
 	while (!tasks.empty())
 	{
@@ -126,9 +130,9 @@ void TaskList::deleteAllTasks()
 	}
 
 }
-//TODO - why do we need it like this?
 TaskList::~TaskList()
 {
+	//dtor can throw exceptions
 	safeLock(&listMutex);
 	deleteAllTasks();
 	safeMutexDestroy(&freeIdMutex);
@@ -141,14 +145,13 @@ int TaskList::idsLeft()
 	try
 	{
 		safeLock(&listMutex);
+		//create copy
 		int size = ids.size();
 		safeUnlock(&listMutex);
 		return size;
 	} catch (PthreadError &e)
 	{
-
 		UNLOCK_IGNORE(listMutex);
-
 		return FAIL;
 	}
 
@@ -159,6 +162,8 @@ int TaskList::getFreeID()
 	try
 	{
 		safeLock(&freeIdMutex);
+		//find first that is unused , probably there are some faster ways to do this
+		//as this way we it takes O(number of tasks) to get new id, however this way is far simpler
 		for (int i = 0; i <= INT_MAX; ++i)
 		{
 			if (ids.find(i) == ids.end())
@@ -186,9 +191,9 @@ shared_ptr<Task> TaskList::popTask()
 			safeUnlock(&listMutex);
 			return NULL;
 		}
-
 		shared_ptr<Task> front = tasks.front();
 		curRun = front;
+		//clean!
 		ids.erase(front->id);
 		tasks.pop();
 		safeUnlock(&listMutex);
